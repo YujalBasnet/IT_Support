@@ -6,9 +6,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// app.get("/", (req, res) => {
-//   res.send("Todo Backend is running...");
-// });
+app.get("/", (req, res) => {
+  res.send("Todo Backend is running...");
+});
 
 const PORT = 5000;
 
