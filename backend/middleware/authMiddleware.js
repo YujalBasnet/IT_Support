@@ -1,8 +1,6 @@
 import jwt from "jsonwebtoken";
 
 export const isLoggedIn = (req, res, next) => {
-
-  // console.log("AUTHORIZATION HEADER:", req.headers.authorization);
   const token = req?.headers?.authorization?.split(" ")[1];
 
   if (!token) {
@@ -26,6 +24,7 @@ export const isLoggedIn = (req, res, next) => {
     });
   }
 };
+
 export const isAdmin = (req, res, next) => {
   if (req.user.roleId === 3) {
     next();
