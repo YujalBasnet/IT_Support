@@ -132,3 +132,41 @@ export const googleCallback = async (req, res) => {
     });
   }
 };
+
+export const getMe = async (req, res) => {
+  try {
+    const [users] = await database
+      .promise()
+      .query(
+        `SELECT 
+          u.id,
+          u.name,
+          u.email,
+          u.profile_image,
+          u.account_status,
+          r.name AS role
+        FROM users u
+        JOIN roles r ON u.role_id = r.id
+        WHERE u.id = ?`,
+        [req.user.userId]
+      );
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    res.json({
+      message: "User information retrieved successfully",
+      user: users[0],
+    });
+
+  } catch (error) {
+    console.error("Get user error:", error);
+
+    res.status(500).json({
+      message: "Failed to get user information",
+    });
+  }
+};
