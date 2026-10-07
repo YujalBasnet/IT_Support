@@ -16,13 +16,13 @@
     "cors": "^2.8.6",
     "dotenv": "^18.0.6",
     "express": "^5.2.1",
-<<<<<<< HEAD
+    "helmet": "^7.0.0",
     "google-auth-library": "^11.1.0",
     "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.24.4"
-=======
-    "mysql2": "^3.24.5"
->>>>>>> ec83cdb7a60baf29d2dcd292a2c70c9099c92877
+
+    
+
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
