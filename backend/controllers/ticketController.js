@@ -107,3 +107,64 @@ export const getTickets = (req, res) => {
     });
   });
 };
+
+
+export const getTicketById = (req, res) => {
+  const ticketId = req.params.id;
+
+  const query = `
+    SELECT *
+    FROM tickets
+    WHERE id = ?
+  `;
+
+  database.query(query, [ticketId], (error, results) => {
+    if (error) {
+      console.error("Error fetching ticket:", error);
+
+      return res.status(500).json({
+        message: "Failed to fetch ticket",
+      });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({
+        message: "Ticket not found",
+      });
+    }
+
+    const ticket = results[0];
+
+    // Employee can only view their own tickets
+    if (
+      req.user.roleId === 1 &&
+      ticket.requester_id !== req.user.userId
+    ) {
+      return res.status(403).json({
+        message: "You are not allowed to view this ticket",
+      });
+    }
+
+    // Support agent can only view tickets assigned to them
+    if (
+      req.user.roleId === 2 &&
+      ticket.assigned_agent_id !== req.user.userId
+    ) {
+      return res.status(403).json({
+        message: "You are not allowed to view this ticket",
+      });
+    }
+
+    // Admin can view any ticket
+    if (![1, 2, 3].includes(req.user.roleId)) {
+      return res.status(403).json({
+        message: "Access denied",
+      });
+    }
+
+    res.status(200).json({
+      message: "Ticket retrieved successfully",
+      ticket,
+    });
+  });
+};
