@@ -170,3 +170,9 @@ export const getMe = async (req, res) => {
     });
   }
 };
+
+export const logout = (req, res) => {
+  res.json({
+    message: "Logout successful",
+  });
+};
