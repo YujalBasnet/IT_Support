@@ -168,3 +168,43 @@ export const getTicketById = (req, res) => {
     });
   });
 };
+
+
+export const assignTicket = (req, res) => {
+  const ticketId = req.params.id;
+  const { assigned_agent_id, team_id } = req.body;
+
+  if (!assigned_agent_id || !team_id) {
+    return res.status(400).json({
+      message: "Assigned agent and team are required",
+    });
+  }
+
+  const query = `
+    UPDATE tickets
+    SET assigned_agent_id = ?, team_id = ?, status = 'ASSIGNED'
+    WHERE id = ?
+  `;
+
+  const values = [assigned_agent_id, team_id, ticketId];
+
+  database.query(query, values, (error, result) => {
+    if (error) {
+      console.error("Error assigning ticket:", error);
+
+      return res.status(500).json({
+        message: "Failed to assign ticket",
+      });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        message: "Ticket not found",
+      });
+    }
+
+    res.status(200).json({
+      message: "Ticket assigned successfully",
+    });
+  });
+};
