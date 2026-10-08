@@ -122,3 +122,44 @@ export const updateUserRole = async (req, res) => {
     });
   }
 };
+
+export const updateUserStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const allowedStatuses = ["ACTIVE", "INACTIVE"];
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        message: "Invalid account status",
+      });
+    }
+
+    const [users] = await database.promise().query(
+      "SELECT id FROM users WHERE id = ?",
+      [id]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    await database.promise().query(
+      "UPDATE users SET account_status = ? WHERE id = ?",
+      [status, id]
+    );
+
+    res.json({
+      message: "User status updated successfully",
+    });
+  } catch (error) {
+    console.error("Update user status error:", error);
+
+    res.status(500).json({
+      message: "Failed to update user status",
+    });
+  }
+};
