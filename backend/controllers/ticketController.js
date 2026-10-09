@@ -174,6 +174,7 @@ export const getTicketById = (req, res) => {
 export const assignTicket = (req, res) => {
   const ticketId = req.params.id;
   const { assigned_agent_id, team_id } = req.body;
+  
 
   if (!assigned_agent_id || !team_id) {
     return res.status(400).json({
@@ -186,6 +187,7 @@ export const assignTicket = (req, res) => {
     "SELECT id FROM tickets WHERE id = ?",
     [ticketId],
     (ticketError, ticketResults) => {
+      
       if (ticketError) {
         console.error("Error checking ticket:", ticketError);
         return res.status(500).json({
@@ -204,6 +206,7 @@ export const assignTicket = (req, res) => {
         "SELECT id FROM users WHERE id = ? AND role_id = 2",
         [assigned_agent_id],
         (agentError, agentResults) => {
+          
           if (agentError) {
             console.error("Error checking support agent:", agentError);
             return res.status(500).json({
@@ -222,6 +225,7 @@ export const assignTicket = (req, res) => {
             "SELECT team_id FROM team_members WHERE team_id = ? AND user_id = ?",
             [team_id, assigned_agent_id],
             (teamError, teamResults) => {
+              
               if (teamError) {
                 console.error("Error checking team membership:", teamError);
                 return res.status(500).json({
