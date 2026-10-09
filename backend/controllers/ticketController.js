@@ -221,6 +221,11 @@ export const updateTicketStatus = (req, res) => {
   const userId = req.user.userId;
   const roleId = req.user.roleId;
 
+  console.log("Logged-in user:", req.user);
+  console.log("User ID:", userId);
+  console.log("Role ID:", roleId);
+  
+
   const allowedStatuses = [
     "OPEN",
     "ASSIGNED",
