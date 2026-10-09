@@ -210,9 +210,16 @@ export const assignTicket = (req, res) => {
 };
 
 
+
 export const updateTicketStatus = (req, res) => {
+  console.log("updateTicketStatus controller reached");
+  console.log("Ticket ID:", req.params.id);
+  console.log("Requested status:", req.body.status);
   const ticketId = req.params.id;
   const { status } = req.body;
+
+  const userId = req.user.userId;
+  const roleId = req.user.roleId;
 
   const allowedStatuses = [
     "OPEN",
@@ -231,58 +238,139 @@ export const updateTicketStatus = (req, res) => {
     });
   }
 
-  let query;
-  let values;
+  // Find the ticket first
+  database.query(
+    "SELECT * FROM tickets WHERE id = ?",
+    [ticketId],
+    (error, results) => {
+      if (error) {
+        console.error("Error fetching ticket:", error);
+        return res.status(500).json({
+          message: "Failed to fetch ticket",
+        });
+      }
 
-  if (status === "RESOLVED") {
+      if (results.length === 0) {
+        return res.status(404).json({
+          message: "Ticket not found",
+        });
+      }
+
+      const ticket = results[0];
+      console.log("Current database status:", ticket.status);
+      const allowedTransitions = {
+        OPEN: ["ASSIGNED", "IN_PROGRESS", "CLOSED"],
+        ASSIGNED: ["IN_PROGRESS", "WAITING_FOR_USER", "RESOLVED"],
+        IN_PROGRESS: ["WAITING_FOR_USER", "RESOLVED"],
+        WAITING_FOR_USER: ["IN_PROGRESS", "RESOLVED"],
+        RESOLVED: ["CLOSED", "REOPENED"],
+        CLOSED: ["REOPENED"],
+        REOPENED: ["ASSIGNED", "IN_PROGRESS", "CLOSED"],
+    };
+
+      if (!allowedTransitions[ticket.status]?.includes(status)) {
+          return res.status(400).json({
+              message: `Cannot change ticket status from ${ticket.status} to ${status}`,
+             });
+          }
+
+      // Employees can only update their own tickets
+      if (roleId === 1 && ticket.requester_id !== userId) {
+        return res.status(403).json({
+          message: "You are not allowed to update this ticket",
+        });
+      }
+
+      // Support agents can only update tickets assigned to them
+      if (roleId === 2 && ticket.assigned_agent_id !== userId) {
+        return res.status(403).json({
+          message: "You are not allowed to update this ticket",
+        });
+      }
+
+      // Only employees, support agents, and admins are allowed
+      if (![1, 2, 3].includes(roleId)) {
+        return res.status(403).json({
+          message: "Access denied",
+        });
+      }
+
+     
+
+      
+let query;
+let values;
+
+switch (status) {
+  case "RESOLVED":
     query = `
       UPDATE tickets
-      SET status = ?, resolved_at = CURRENT_TIMESTAMP
+      SET status = ?,
+          resolved_at = CURRENT_TIMESTAMP,
+          closed_at = NULL
       WHERE id = ?
     `;
     values = [status, ticketId];
-  } else if (status === "CLOSED") {
+    break;
+
+  case "CLOSED":
     query = `
       UPDATE tickets
-      SET status = ?, closed_at = CURRENT_TIMESTAMP
+      SET status = ?,
+          closed_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
     values = [status, ticketId];
-  } else if (status === "REOPENED") {
+    break;
+
+  case "REOPENED":
     query = `
       UPDATE tickets
-      SET status = ?, resolved_at = NULL, closed_at = NULL
+      SET status = ?,
+          resolved_at = NULL,
+          closed_at = NULL
       WHERE id = ?
     `;
     values = [status, ticketId];
-  } else {
+    break;
+
+  default:
     query = `
       UPDATE tickets
-      SET status = ?
+      SET status = ?,
+          resolved_at = NULL,
+          closed_at = NULL
       WHERE id = ?
     `;
     values = [status, ticketId];
+}
+
+
+        if (typeof query !== "string" || !query.trim()) {
+  console.error("SQL query was not assigned:", { status, query });
+
+  return res.status(500).json({
+    message: "Internal error: status update query is missing",
+  });
+}
+
+      database.query(query, values, (updateError, result) => {
+  if (updateError) {
+    console.error("Error updating ticket status:", updateError);
+    return res.status(500).json({
+      message: "Failed to update ticket status",
+    });
   }
 
-  database.query(query, values, (error, result) => {
-    if (error) {
-      console.error("Error updating ticket status:", error);
+  console.log("Updated rows:", result.affectedRows);
 
-      return res.status(500).json({
-        message: "Failed to update ticket status",
-      });
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        message: "Ticket not found",
-      });
-    }
-
-    return res.status(200).json({
-      message: "Ticket status updated successfully",
-      ticketId: Number(ticketId),
-      status,
-    });
+  return res.status(200).json({
+    message: "Ticket status updated successfully",
+    ticketId: Number(ticketId),
+    status,
   });
+});
+    }
+  );
 };
+

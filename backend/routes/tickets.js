@@ -9,6 +9,6 @@ router.post("/", isLoggedIn, createTicket);
 router.get("/:id", isLoggedIn, getTicketById);
 router.get("/", isLoggedIn, getTickets);
 router.patch("/:id/assign", isLoggedIn, isAdmin, assignTicket);
-router.patch("/:id/status", isLoggedIn, isAdmin, updateTicketStatus);
+router.patch("/:id/status", isLoggedIn, updateTicketStatus);
 
 export default router;
