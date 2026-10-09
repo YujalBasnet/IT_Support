@@ -208,3 +208,53 @@ export const assignTicket = (req, res) => {
     });
   });
 };
+
+export const updateTicketStatus = (req, res) => {
+  const ticketId = req.params.id;
+  const { status } = req.body;
+
+  const allowedStatuses = [
+    "OPEN",
+    "ASSIGNED",
+    "IN_PROGRESS",
+    "WAITING_FOR_USER",
+    "RESOLVED",
+    "CLOSED",
+    "REOPENED",
+  ];
+
+  if (!status || !allowedStatuses.includes(status)) {
+    return res.status(400).json({
+      message: "Invalid ticket status",
+      allowedStatuses,
+    });
+  }
+
+  const query = `
+    UPDATE tickets
+    SET status = ?
+    WHERE id = ?
+  `;
+
+  database.query(query, [status, ticketId], (error, result) => {
+    if (error) {
+      console.error("Error updating ticket status:", error);
+
+      return res.status(500).json({
+        message: "Failed to update ticket status",
+      });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        message: "Ticket not found",
+      });
+    }
+
+    return res.status(200).json({
+      message: "Ticket status updated successfully",
+      ticketId: Number(ticketId),
+      status,
+    });
+  });
+};
