@@ -171,3 +171,53 @@ export const addTeamMember = async (req, res) => {
     });
   }
 };
+
+
+
+export const getTeamMembers = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check whether the team exists
+    const [teams] = await database.promise().query(
+      "SELECT id, name FROM support_teams WHERE id = ?",
+      [id]
+    );
+
+    if (teams.length === 0) {
+      return res.status(404).json({
+        message: "Team not found",
+      });
+    }
+
+    // Retrieve the users who belong to this team
+    const [members] = await database.promise().query(
+      `SELECT
+         u.id,
+         u.name,
+         u.email,
+         u.profile_image,
+         u.account_status,
+         r.name AS role,
+         tm.joined_at
+       FROM team_members tm
+       JOIN users u ON tm.user_id = u.id
+       JOIN roles r ON u.role_id = r.id
+       WHERE tm.team_id = ?
+       ORDER BY tm.joined_at DESC`,
+      [id]
+    );
+
+    return res.status(200).json({
+      message: "Team members retrieved successfully",
+      team: teams[0],
+      members,
+    });
+  } catch (error) {
+    console.error("Get team members error:", error);
+
+    return res.status(500).json({
+      message: "Failed to retrieve team members",
+    });
+  }
+};
