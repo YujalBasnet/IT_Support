@@ -209,6 +209,7 @@ export const assignTicket = (req, res) => {
   });
 };
 
+
 export const updateTicketStatus = (req, res) => {
   const ticketId = req.params.id;
   const { status } = req.body;
@@ -230,13 +231,40 @@ export const updateTicketStatus = (req, res) => {
     });
   }
 
-  const query = `
-    UPDATE tickets
-    SET status = ?
-    WHERE id = ?
-  `;
+  let query;
+  let values;
 
-  database.query(query, [status, ticketId], (error, result) => {
+  if (status === "RESOLVED") {
+    query = `
+      UPDATE tickets
+      SET status = ?, resolved_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `;
+    values = [status, ticketId];
+  } else if (status === "CLOSED") {
+    query = `
+      UPDATE tickets
+      SET status = ?, closed_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `;
+    values = [status, ticketId];
+  } else if (status === "REOPENED") {
+    query = `
+      UPDATE tickets
+      SET status = ?, resolved_at = NULL, closed_at = NULL
+      WHERE id = ?
+    `;
+    values = [status, ticketId];
+  } else {
+    query = `
+      UPDATE tickets
+      SET status = ?
+      WHERE id = ?
+    `;
+    values = [status, ticketId];
+  }
+
+  database.query(query, values, (error, result) => {
     if (error) {
       console.error("Error updating ticket status:", error);
 
