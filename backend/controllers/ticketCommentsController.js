@@ -69,7 +69,7 @@ export const addTicketComment = (req, res) => {
       is_internal === "1";
 
     const insertQuery = `
-      INSERT INTO ticket_comments
+      INSERT INTO comments
         (ticket_id, user_id, comment, is_internal)
       VALUES (?, ?, ?, ?)
     `;
@@ -153,7 +153,7 @@ export const getTicketComments = (req, res) => {
         c.is_internal,
         c.created_at,
         c.updated_at
-      FROM ticket_comments c
+      FROM comments c
       JOIN users u ON u.id = c.user_id
       WHERE c.ticket_id = ?
     `;
