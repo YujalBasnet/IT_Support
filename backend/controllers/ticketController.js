@@ -171,10 +171,10 @@ export const getTicketById = (req, res) => {
 
 
 
+
 export const assignTicket = (req, res) => {
   const ticketId = req.params.id;
   const { assigned_agent_id, team_id } = req.body;
-  
 
   if (!assigned_agent_id || !team_id) {
     return res.status(400).json({
@@ -187,7 +187,6 @@ export const assignTicket = (req, res) => {
     "SELECT id FROM tickets WHERE id = ?",
     [ticketId],
     (ticketError, ticketResults) => {
-      
       if (ticketError) {
         console.error("Error checking ticket:", ticketError);
         return res.status(500).json({
@@ -201,71 +200,95 @@ export const assignTicket = (req, res) => {
         });
       }
 
-      // 2. Check whether the assigned user is a support agent
+      // 2. Check whether the team exists
       database.query(
-        "SELECT id FROM users WHERE id = ? AND role_id = 2",
-        [assigned_agent_id],
-        (agentError, agentResults) => {
-          
-          if (agentError) {
-            console.error("Error checking support agent:", agentError);
+        "SELECT id FROM support_teams WHERE id = ?",
+        [team_id],
+        (teamCheckError, teamCheckResults) => {
+          if (teamCheckError) {
+            console.error("Error checking team:", teamCheckError);
             return res.status(500).json({
-              message: "Failed to check support agent",
+              message: "Failed to check team",
             });
           }
 
-          if (agentResults.length === 0) {
-            return res.status(400).json({
-              message: "Assigned user is not a valid support agent",
+          if (teamCheckResults.length === 0) {
+            return res.status(404).json({
+              message: "Team not found",
             });
           }
 
-          // 3. Check whether the support agent belongs to the team
+          // 3. Check whether the assigned user is a support agent
           database.query(
-            "SELECT team_id FROM team_members WHERE team_id = ? AND user_id = ?",
-            [team_id, assigned_agent_id],
-            (teamError, teamResults) => {
-              
-              if (teamError) {
-                console.error("Error checking team membership:", teamError);
+            "SELECT id FROM users WHERE id = ? AND role_id = 2",
+            [assigned_agent_id],
+            (agentError, agentResults) => {
+              if (agentError) {
+                console.error("Error checking support agent:", agentError);
                 return res.status(500).json({
-                  message: "Failed to check team membership",
+                  message: "Failed to check support agent",
                 });
               }
 
-              if (teamResults.length === 0) {
+              if (agentResults.length === 0) {
                 return res.status(400).json({
-                  message: "Support agent does not belong to this team",
+                  message: "Assigned user is not a valid support agent",
                 });
               }
 
-              // 4. Assign the ticket after all checks pass
-              const query = `
-                UPDATE tickets
-                SET assigned_agent_id = ?,
-                    team_id = ?,
-                    status = 'ASSIGNED'
-                WHERE id = ?
-              `;
-
+              // 4. Check whether the support agent belongs to the team
               database.query(
-                query,
-                [assigned_agent_id, team_id, ticketId],
-                (updateError) => {
-                  if (updateError) {
-                    console.error("Error assigning ticket:", updateError);
+                `SELECT team_id
+                 FROM team_members
+                 WHERE team_id = ? AND user_id = ?`,
+                [team_id, assigned_agent_id],
+                (membershipError, membershipResults) => {
+                  if (membershipError) {
+                    console.error(
+                      "Error checking team membership:",
+                      membershipError
+                    );
                     return res.status(500).json({
-                      message: "Failed to assign ticket",
+                      message: "Failed to check team membership",
                     });
                   }
 
-                  return res.status(200).json({
-                    message: "Ticket assigned successfully",
-                    ticketId: Number(ticketId),
-                    assigned_agent_id: Number(assigned_agent_id),
-                    team_id: Number(team_id),
-                    status: "ASSIGNED",
-                  });
+                  if (membershipResults.length === 0) {
+                    return res.status(400).json({
+                      message:
+                        "Support agent does not belong to this team",
+                    });
+                  }
+
+                  // 5. Assign the ticket after all checks pass
+                  const query = `
+                    UPDATE tickets
+                    SET assigned_agent_id = ?,
+                        team_id = ?,
+                        status = 'ASSIGNED'
+                    WHERE id = ?
+                  `;
+
+                  database.query(
+                    query,
+                    [assigned_agent_id, team_id, ticketId],
+                    (updateError) => {
+                      if (updateError) {
+                        console.error("Error assigning ticket:", updateError);
+                        return res.status(500).json({
+                          message: "Failed to assign ticket",
+                        });
+                      }
+
+                      return res.status(200).json({
+                        message: "Ticket assigned successfully",
+                        ticketId: Number(ticketId),
+                        assigned_agent_id: Number(assigned_agent_id),
+                        team_id: Number(team_id),
+                        status: "ASSIGNED",
+                      });
+                    }
+                  );
                 }
               );
             }
@@ -275,6 +298,8 @@ export const assignTicket = (req, res) => {
     }
   );
 };
+
+
 
 
 
