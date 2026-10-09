@@ -68,3 +68,34 @@ export const createTeam = async (req, res) => {
     });
   }
 };
+
+
+export const getTeamById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [teams] = await database.promise().query(
+      `SELECT id, name, description
+       FROM support_teams
+       WHERE id = ?`,
+      [id]
+    );
+
+    if (teams.length === 0) {
+      return res.status(404).json({
+        message: "Team not found",
+      });
+    }
+
+    res.json({
+      message: "Team retrieved successfully",
+      team: teams[0],
+    });
+  } catch (error) {
+    console.error("Get team by ID error:", error);
+
+    res.status(500).json({
+      message: "Failed to retrieve team",
+    });
+  }
+};
