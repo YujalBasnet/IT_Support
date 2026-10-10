@@ -1,6 +1,6 @@
 import express from "express";
 
-import { createTicket, getTickets, getTicketById, assignTicket, updateTicketStatus} from "../controllers/ticketController.js";
+import { createTicket, getTickets, getTicketById, assignTicket, updateTicketStatus, getTicketHistory} from "../controllers/ticketController.js";
 import { isAdmin, isLoggedIn } from "../middleware/authMiddleware.js";
 import { addTicketComment, getTicketComments } from "../controllers/ticketCommentsController.js";
 
@@ -15,6 +15,10 @@ router.patch("/:id/status", isLoggedIn, updateTicketStatus);
 
 router.post("/:id/comments", isLoggedIn, addTicketComment);
 router.get("/:id/comments", isLoggedIn, getTicketComments);
+
+//ticket history routes
+
+router.get("/:id/history", isLoggedIn, getTicketHistory);
 
 
 export default router;

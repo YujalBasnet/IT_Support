@@ -37,19 +37,52 @@ export const createTicket = (req, res) => {
       });
     }
 
-    res.status(201).json({
-      message: "Ticket created successfully",
-      ticket: {
-        id: result.insertId,
-        ticket_number: ticketNumber,
-        title,
-        description,
-        requester_id: req.user.userId,
-        category_id,
-        priority: priority || "MEDIUM",
-        status: "OPEN",
-      },
+    
+const ticketId = result.insertId;
+
+const historyQuery = `
+  INSERT INTO ticket_history
+    (ticket_id, user_id, action, previous_value, new_value)
+  VALUES (?, ?, ?, ?, ?)
+`;
+
+const historyValues = [
+  ticketId,
+  Number(req.user.userId),
+  "TICKET_CREATED",
+  null,
+  JSON.stringify({
+    ticket_number: ticketNumber,
+    title,
+    status: "OPEN",
+  }),
+];
+
+database.query(historyQuery, historyValues, (historyError) => {
+  if (historyError) {
+    console.error("Error recording ticket creation history:", historyError);
+
+    return res.status(500).json({
+      message: "Ticket was created, but history logging failed",
+      ticketId,
     });
+  }
+
+  return res.status(201).json({
+    message: "Ticket created successfully",
+    ticket: {
+      id: ticketId,
+      ticket_number: ticketNumber,
+      title,
+      description,
+      requester_id: req.user.userId,
+      category_id,
+      priority: priority || "MEDIUM",
+      status: "OPEN",
+    },
+  });
+});
+
   });
 };
 
@@ -184,7 +217,7 @@ export const assignTicket = (req, res) => {
 
   // 1. Check whether the ticket exists
   database.query(
-    "SELECT id FROM tickets WHERE id = ?",
+    "SELECT id, assigned_agent_id, team_id, status FROM tickets WHERE id = ?",
     [ticketId],
     (ticketError, ticketResults) => {
       if (ticketError) {
@@ -199,6 +232,7 @@ export const assignTicket = (req, res) => {
           message: "Ticket not found",
         });
       }
+      const existingTicket = ticketResults[0];
 
       // 2. Check whether the team exists
       database.query(
@@ -280,13 +314,54 @@ export const assignTicket = (req, res) => {
                         });
                       }
 
-                      return res.status(200).json({
-                        message: "Ticket assigned successfully",
-                        ticketId: Number(ticketId),
-                        assigned_agent_id: Number(assigned_agent_id),
-                        team_id: Number(team_id),
-                        status: "ASSIGNED",
-                      });
+                      
+const historyQuery = `
+  INSERT INTO ticket_history
+    (ticket_id, user_id, action, previous_value, new_value)
+  VALUES (?, ?, ?, ?, ?)
+`;
+
+const previousAssignment = JSON.stringify({
+  assigned_agent_id: existingTicket.assigned_agent_id,
+  team_id: existingTicket.team_id,
+  status: existingTicket.status,
+});
+
+const newAssignment = JSON.stringify({
+  assigned_agent_id: Number(assigned_agent_id),
+  team_id: Number(team_id),
+  status: "ASSIGNED",
+});
+
+database.query(
+  historyQuery,
+  [
+    Number(ticketId),
+    Number(req.user.userId),
+    "TICKET_ASSIGNED",
+    previousAssignment,
+    newAssignment,
+  ],
+  (historyError) => {
+    if (historyError) {
+      console.error("Error recording assignment history:", historyError);
+
+      return res.status(500).json({
+        message: "Ticket was assigned, but history logging failed",
+        ticketId: Number(ticketId),
+      });
+    }
+
+    return res.status(200).json({
+      message: "Ticket assigned successfully",
+      ticketId: Number(ticketId),
+      assigned_agent_id: Number(assigned_agent_id),
+      team_id: Number(team_id),
+      status: "ASSIGNED",
+    });
+  }
+);
+
                     }
                   );
                 }
@@ -462,13 +537,136 @@ switch (status) {
 
   console.log("Updated rows:", result.affectedRows);
 
+console.log("Updated rows:", result.affectedRows);
+
+// Record the status change in ticket_history
+const historyQuery = `
+  INSERT INTO ticket_history
+    (ticket_id, user_id, action, previous_value, new_value)
+  VALUES (?, ?, ?, ?, ?)
+`;
+
+const historyValues = [
+  Number(ticketId),
+  Number(userId),
+  "STATUS_UPDATED",
+  ticket.status,
+  status,
+];
+
+database.query(historyQuery, historyValues, (historyError) => {
+  if (historyError) {
+    console.error("Error recording ticket history:", historyError);
+
+    return res.status(500).json({
+      message: "Ticket status was updated, but history logging failed",
+      ticketId: Number(ticketId),
+      status,
+    });
+  }
+
   return res.status(200).json({
     message: "Ticket status updated successfully",
     ticketId: Number(ticketId),
+    previousStatus: ticket.status,
     status,
   });
+});
+
 });
     }
   );
 };
 
+
+
+export const getTicketHistory = (req, res) => {
+  const { id } = req.params;
+  const ticketId = Number(id);
+  const userId = Number(req.user.userId);
+  const roleId = Number(req.user.roleId);
+
+  if (!Number.isInteger(ticketId) || ticketId <= 0) {
+    return res.status(400).json({
+      message: "Invalid ticket ID",
+    });
+  }
+
+  // First, check whether the ticket exists.
+  const ticketQuery = `
+    SELECT id, requester_id, assigned_agent_id
+    FROM tickets
+    WHERE id = ?
+  `;
+
+  database.query(ticketQuery, [ticketId], (error, tickets) => {
+    if (error) {
+      console.error("Error checking ticket:", error);
+      return res.status(500).json({
+        message: "Failed to retrieve ticket",
+      });
+    }
+
+    if (tickets.length === 0) {
+      return res.status(404).json({
+        message: "Ticket not found",
+      });
+    }
+
+    const ticket = tickets[0];
+
+    // Employees can view history for their own tickets.
+    if (roleId === 1 && Number(ticket.requester_id) !== userId) {
+      return res.status(403).json({
+        message: "You can only view history for your own tickets",
+      });
+    }
+
+    // Support agents can view history for tickets assigned to them.
+    if (
+      roleId === 2 &&
+      Number(ticket.assigned_agent_id) !== userId
+    ) {
+      return res.status(403).json({
+        message: "You can only view history for tickets assigned to you",
+      });
+    }
+
+    if (![1, 2, 3].includes(roleId)) {
+      return res.status(403).json({
+        message: "You are not authorized to view ticket history",
+      });
+    }
+
+    // Retrieve the ticket's audit trail.
+    const historyQuery = `
+      SELECT
+        th.id,
+        th.ticket_id,
+        th.user_id,
+        u.name AS user_name,
+        th.action,
+        th.previous_value,
+        th.new_value,
+        th.created_at
+      FROM ticket_history th
+      LEFT JOIN users u ON th.user_id = u.id
+      WHERE th.ticket_id = ?
+      ORDER BY th.created_at DESC, th.id DESC
+    `;
+
+    database.query(historyQuery, [ticketId], (historyError, history) => {
+      if (historyError) {
+        console.error("Error retrieving ticket history:", historyError);
+        return res.status(500).json({
+          message: "Failed to retrieve ticket history",
+        });
+      }
+
+      return res.status(200).json({
+        ticketId,
+        history,
+      });
+    });
+  });
+};
