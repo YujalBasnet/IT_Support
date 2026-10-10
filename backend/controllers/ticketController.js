@@ -462,11 +462,42 @@ switch (status) {
 
   console.log("Updated rows:", result.affectedRows);
 
+console.log("Updated rows:", result.affectedRows);
+
+// Record the status change in ticket_history
+const historyQuery = `
+  INSERT INTO ticket_history
+    (ticket_id, user_id, action, previous_value, new_value)
+  VALUES (?, ?, ?, ?, ?)
+`;
+
+const historyValues = [
+  Number(ticketId),
+  Number(userId),
+  "STATUS_UPDATED",
+  ticket.status,
+  status,
+];
+
+database.query(historyQuery, historyValues, (historyError) => {
+  if (historyError) {
+    console.error("Error recording ticket history:", historyError);
+
+    return res.status(500).json({
+      message: "Ticket status was updated, but history logging failed",
+      ticketId: Number(ticketId),
+      status,
+    });
+  }
+
   return res.status(200).json({
     message: "Ticket status updated successfully",
     ticketId: Number(ticketId),
+    previousStatus: ticket.status,
     status,
   });
+});
+
 });
     }
   );
