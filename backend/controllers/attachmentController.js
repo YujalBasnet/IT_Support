@@ -78,3 +78,38 @@ export const uploadAttachment = async (req, res) => {
     });
   }
 };
+
+
+
+export const getTicketAttachments = async (req, res) => {
+  try {
+    const ticketId = Number(req.params.id);
+
+    const [attachments] = await database.promise().query(
+      `SELECT
+         id,
+         ticket_id,
+         uploaded_by,
+         original_name,
+         stored_name,
+         file_type,
+         file_size,
+         created_at
+       FROM attachments
+       WHERE ticket_id = ?
+       ORDER BY created_at DESC, id DESC`,
+      [ticketId]
+    );
+
+    return res.status(200).json({
+      count: attachments.length,
+      attachments,
+    });
+  } catch (error) {
+    console.error("Get attachments error:", error);
+
+    return res.status(500).json({
+      message: "Failed to retrieve attachments.",
+    });
+  }
+};
