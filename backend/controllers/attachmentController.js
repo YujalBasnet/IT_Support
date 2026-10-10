@@ -1,16 +1,18 @@
 
 // controllers/attachmentController.js
-import path from "path";
 import fs from "fs/promises";
 import database from "../config/database.js";
 
-// Upload attachment
 export const uploadAttachment = async (req, res) => {
-  let connection;
-
   try {
-    const { id: ticketId } = req.params;
+    const ticketId = Number(req.params.id);
     const userId = req.user.userId;
+
+    if (!Number.isInteger(ticketId) || ticketId <= 0) {
+      return res.status(400).json({
+        message: "Invalid ticket ID.",
+      });
+    }
 
     if (!req.file) {
       return res.status(400).json({
@@ -18,31 +20,25 @@ export const uploadAttachment = async (req, res) => {
       });
     }
 
-    // Check that the ticket exists
-    const [tickets] = await database.query(
+    // Verify the ticket exists.
+    const [tickets] = await database.promise().query(
       "SELECT id FROM tickets WHERE id = ?",
       [ticketId]
     );
 
     if (tickets.length === 0) {
       await fs.unlink(req.file.path).catch(() => {});
+
       return res.status(404).json({
         message: "Ticket not found.",
       });
     }
 
-    // TODO: Add your ticket-access authorization check here
-    // before allowing the user to upload.
+    // IMPORTANT:
+    // Add your ticket-access authorization check here before
+    // allowing employees or agents to upload attachments.
 
-    const {
-      originalname,
-      filename,
-      mimetype,
-      size,
-      path: filePath,
-    } = req.file;
-
-    const [result] = await database.query(
+    const [result] = await database.promise().query(
       `INSERT INTO attachments
        (ticket_id, uploaded_by, original_name, stored_name,
         file_path, file_type, file_size)
@@ -50,11 +46,11 @@ export const uploadAttachment = async (req, res) => {
       [
         ticketId,
         userId,
-        originalname,
-        filename,
-        filePath,
-        mimetype,
-        size,
+        req.file.originalname,
+        req.file.filename,
+        req.file.path,
+        req.file.mimetype,
+        req.file.size,
       ]
     );
 
@@ -62,21 +58,20 @@ export const uploadAttachment = async (req, res) => {
       message: "Attachment uploaded successfully.",
       attachment: {
         id: result.insertId,
-        ticket_id: Number(ticketId),
+        ticket_id: ticketId,
         uploaded_by: userId,
-        original_name: originalname,
-        stored_name: filename,
-        file_type: mimetype,
-        file_size: size,
+        original_name: req.file.originalname,
+        stored_name: req.file.filename,
+        file_type: req.file.mimetype,
+        file_size: req.file.size,
       },
     });
   } catch (error) {
-    // If the database insert fails, remove the uploaded file.
     if (req.file?.path) {
       await fs.unlink(req.file.path).catch(() => {});
     }
 
-    console.error("Attachment upload error:", error);
+    console.error("Upload attachment error:", error);
 
     return res.status(500).json({
       message: "Failed to upload attachment.",
