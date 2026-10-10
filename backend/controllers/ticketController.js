@@ -184,7 +184,7 @@ export const assignTicket = (req, res) => {
 
   // 1. Check whether the ticket exists
   database.query(
-    "SELECT id FROM tickets WHERE id = ?",
+    "SELECT id, assigned_agent_id, team_id, status FROM tickets WHERE id = ?",
     [ticketId],
     (ticketError, ticketResults) => {
       if (ticketError) {
@@ -199,6 +199,7 @@ export const assignTicket = (req, res) => {
           message: "Ticket not found",
         });
       }
+      const existingTicket = ticketResults[0];
 
       // 2. Check whether the team exists
       database.query(
@@ -280,13 +281,54 @@ export const assignTicket = (req, res) => {
                         });
                       }
 
-                      return res.status(200).json({
-                        message: "Ticket assigned successfully",
-                        ticketId: Number(ticketId),
-                        assigned_agent_id: Number(assigned_agent_id),
-                        team_id: Number(team_id),
-                        status: "ASSIGNED",
-                      });
+                      
+const historyQuery = `
+  INSERT INTO ticket_history
+    (ticket_id, user_id, action, previous_value, new_value)
+  VALUES (?, ?, ?, ?, ?)
+`;
+
+const previousAssignment = JSON.stringify({
+  assigned_agent_id: existingTicket.assigned_agent_id,
+  team_id: existingTicket.team_id,
+  status: existingTicket.status,
+});
+
+const newAssignment = JSON.stringify({
+  assigned_agent_id: Number(assigned_agent_id),
+  team_id: Number(team_id),
+  status: "ASSIGNED",
+});
+
+database.query(
+  historyQuery,
+  [
+    Number(ticketId),
+    Number(req.user.userId),
+    "TICKET_ASSIGNED",
+    previousAssignment,
+    newAssignment,
+  ],
+  (historyError) => {
+    if (historyError) {
+      console.error("Error recording assignment history:", historyError);
+
+      return res.status(500).json({
+        message: "Ticket was assigned, but history logging failed",
+        ticketId: Number(ticketId),
+      });
+    }
+
+    return res.status(200).json({
+      message: "Ticket assigned successfully",
+      ticketId: Number(ticketId),
+      assigned_agent_id: Number(assigned_agent_id),
+      team_id: Number(team_id),
+      status: "ASSIGNED",
+    });
+  }
+);
+
                     }
                   );
                 }
