@@ -113,3 +113,62 @@ export const getTicketAttachments = async (req, res) => {
     });
   }
 };
+
+
+import path from "path";
+import fs from "fs/promises";
+import database from "../config/database.js";
+
+export const downloadAttachment = async (req, res) => {
+  try {
+    const attachmentId = Number(req.params.id);
+
+    if (!Number.isInteger(attachmentId) || attachmentId <= 0) {
+      return res.status(400).json({
+        message: "Invalid attachment ID.",
+      });
+    }
+
+    const [rows] = await database.promise().query(
+      `SELECT
+         a.id,
+         a.ticket_id,
+         a.original_name,
+         a.file_path
+       FROM attachments a
+       WHERE a.id = ?`,
+      [attachmentId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        message: "Attachment not found.",
+      });
+    }
+
+    const attachment = rows[0];
+
+    // Reuse the ticket authorization middleware's access rules.
+    // The download route should pass the attachment's ticket ID
+    // through a middleware specifically designed for attachments.
+    const allowedRoot = path.resolve("uploads", "tickets");
+    const absolutePath = path.resolve(attachment.file_path);
+
+    if (
+      !absolutePath.startsWith(allowedRoot + path.sep) ||
+      !(await fs.stat(absolutePath).catch(() => null))
+    ) {
+      return res.status(404).json({
+        message: "Attachment file not found.",
+      });
+    }
+
+    return res.download(absolutePath, attachment.original_name);
+  } catch (error) {
+    console.error("Download attachment error:", error);
+
+    return res.status(500).json({
+      message: "Failed to download attachment.",
+    });
+  }
+};
