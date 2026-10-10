@@ -6,6 +6,7 @@ import ticketsRoutes from "./routes/tickets.js";
 import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/users.js";
 import teamRoutes from "./routes/team.js";
+import attachmentRoutes from "./routes/attachmentRoutes.js";
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use("/auth", authRoutes);
 app.use("/tickets", ticketsRoutes);
 app.use("/users", userRoutes);
 app.use("/teams", teamRoutes);
+app.use("/attachments", attachmentRoutes);
 
 app.get("/", (req, res) => {
   res.send("IT Support Backend is running...");
