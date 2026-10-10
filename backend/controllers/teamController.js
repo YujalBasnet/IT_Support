@@ -221,3 +221,52 @@ export const getTeamMembers = async (req, res) => {
     });
   }
 };
+
+
+export const removeTeamMember = async (req, res) => {
+  try {
+    const { id, userId } = req.params;
+
+    // Check whether the team exists
+    const [teams] = await database.promise().query(
+      "SELECT id FROM support_teams WHERE id = ?",
+      [id]
+    );
+
+    if (teams.length === 0) {
+      return res.status(404).json({
+        message: "Team not found",
+      });
+    }
+
+    // Check whether the user belongs to this team
+    const [members] = await database.promise().query(
+      `SELECT id FROM team_members
+       WHERE team_id = ? AND user_id = ?`,
+      [id, userId]
+    );
+
+    if (members.length === 0) {
+      return res.status(404).json({
+        message: "User is not a member of this team",
+      });
+    }
+
+    // Remove only the membership record
+    await database.promise().query(
+      `DELETE FROM team_members
+       WHERE team_id = ? AND user_id = ?`,
+      [id, userId]
+    );
+
+    return res.status(200).json({
+      message: "Team member removed successfully",
+    });
+  } catch (error) {
+    console.error("Remove team member error:", error);
+
+    return res.status(500).json({
+      message: "Failed to remove team member",
+    });
+  }
+};
