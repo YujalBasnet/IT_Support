@@ -1,7 +1,7 @@
 
 // controllers/attachmentController.js
 import fs from "fs/promises";
-import database from "../config/database.js";
+import database from "../database/database.js";
 
 export const uploadAttachment = async (req, res) => {
   try {
