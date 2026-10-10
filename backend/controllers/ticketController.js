@@ -37,19 +37,52 @@ export const createTicket = (req, res) => {
       });
     }
 
-    res.status(201).json({
-      message: "Ticket created successfully",
-      ticket: {
-        id: result.insertId,
-        ticket_number: ticketNumber,
-        title,
-        description,
-        requester_id: req.user.userId,
-        category_id,
-        priority: priority || "MEDIUM",
-        status: "OPEN",
-      },
+    
+const ticketId = result.insertId;
+
+const historyQuery = `
+  INSERT INTO ticket_history
+    (ticket_id, user_id, action, previous_value, new_value)
+  VALUES (?, ?, ?, ?, ?)
+`;
+
+const historyValues = [
+  ticketId,
+  Number(req.user.userId),
+  "TICKET_CREATED",
+  null,
+  JSON.stringify({
+    ticket_number: ticketNumber,
+    title,
+    status: "OPEN",
+  }),
+];
+
+database.query(historyQuery, historyValues, (historyError) => {
+  if (historyError) {
+    console.error("Error recording ticket creation history:", historyError);
+
+    return res.status(500).json({
+      message: "Ticket was created, but history logging failed",
+      ticketId,
     });
+  }
+
+  return res.status(201).json({
+    message: "Ticket created successfully",
+    ticket: {
+      id: ticketId,
+      ticket_number: ticketNumber,
+      title,
+      description,
+      requester_id: req.user.userId,
+      category_id,
+      priority: priority || "MEDIUM",
+      status: "OPEN",
+    },
+  });
+});
+
   });
 };
 
