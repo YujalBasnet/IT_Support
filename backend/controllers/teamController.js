@@ -270,3 +270,45 @@ export const removeTeamMember = async (req, res) => {
     });
   }
 };
+
+// Update support team
+export const updateTeam = (req, res) => {
+    const { id } = req.params;
+    const { name, description } = req.body;
+
+    if (!name || !description) {
+        return res.status(400).json({
+            message: "Team name and description are required"
+        });
+    }
+
+    const sql = `
+        UPDATE support_teams
+        SET name = ?, description = ?
+        WHERE id = ?
+    `;
+
+    database.query(sql, [name, description, id], (err, result) => {
+        if (err) {
+            console.error("Error updating team:", err);
+            return res.status(500).json({
+                message: "Internal server error"
+            });
+        }
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                message: "Team not found"
+            });
+        }
+
+        return res.status(200).json({
+            message: "Team updated successfully",
+            team: {
+                id: Number(id),
+                name,
+                description
+            }
+        });
+    });
+};
