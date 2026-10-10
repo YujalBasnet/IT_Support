@@ -578,3 +578,95 @@ database.query(historyQuery, historyValues, (historyError) => {
   );
 };
 
+
+
+export const getTicketHistory = (req, res) => {
+  const { id } = req.params;
+  const ticketId = Number(id);
+  const userId = Number(req.user.userId);
+  const roleId = Number(req.user.roleId);
+
+  if (!Number.isInteger(ticketId) || ticketId <= 0) {
+    return res.status(400).json({
+      message: "Invalid ticket ID",
+    });
+  }
+
+  // First, check whether the ticket exists.
+  const ticketQuery = `
+    SELECT id, requester_id, assigned_agent_id
+    FROM tickets
+    WHERE id = ?
+  `;
+
+  database.query(ticketQuery, [ticketId], (error, tickets) => {
+    if (error) {
+      console.error("Error checking ticket:", error);
+      return res.status(500).json({
+        message: "Failed to retrieve ticket",
+      });
+    }
+
+    if (tickets.length === 0) {
+      return res.status(404).json({
+        message: "Ticket not found",
+      });
+    }
+
+    const ticket = tickets[0];
+
+    // Employees can view history for their own tickets.
+    if (roleId === 1 && Number(ticket.requester_id) !== userId) {
+      return res.status(403).json({
+        message: "You can only view history for your own tickets",
+      });
+    }
+
+    // Support agents can view history for tickets assigned to them.
+    if (
+      roleId === 2 &&
+      Number(ticket.assigned_agent_id) !== userId
+    ) {
+      return res.status(403).json({
+        message: "You can only view history for tickets assigned to you",
+      });
+    }
+
+    if (![1, 2, 3].includes(roleId)) {
+      return res.status(403).json({
+        message: "You are not authorized to view ticket history",
+      });
+    }
+
+    // Retrieve the ticket's audit trail.
+    const historyQuery = `
+      SELECT
+        th.id,
+        th.ticket_id,
+        th.user_id,
+        u.name AS user_name,
+        th.action,
+        th.previous_value,
+        th.new_value,
+        th.created_at
+      FROM ticket_history th
+      LEFT JOIN users u ON th.user_id = u.id
+      WHERE th.ticket_id = ?
+      ORDER BY th.created_at DESC, th.id DESC
+    `;
+
+    database.query(historyQuery, [ticketId], (historyError, history) => {
+      if (historyError) {
+        console.error("Error retrieving ticket history:", historyError);
+        return res.status(500).json({
+          message: "Failed to retrieve ticket history",
+        });
+      }
+
+      return res.status(200).json({
+        ticketId,
+        history,
+      });
+    });
+  });
+};
