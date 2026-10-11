@@ -7,17 +7,20 @@ import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/users.js";
 import teamRoutes from "./routes/team.js";
 import attachmentRoutes from "./routes/attachmentRoutes.js";
+import { errorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(errorHandler);
 
 app.use("/auth", authRoutes);
 app.use("/tickets", ticketsRoutes);
 app.use("/users", userRoutes);
 app.use("/teams", teamRoutes);
 app.use("/attachments", attachmentRoutes);
+app.use("/error", errorHandler);
 
 app.get("/", (req, res) => {
   res.send("IT Support Backend is running...");

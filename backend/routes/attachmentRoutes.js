@@ -12,5 +12,6 @@ router.get( "/tickets/:id/attachments", isLoggedIn, canAccessTicket, getTicketAt
 
 router.get("/attachments/:id/download", isLoggedIn, downloadAttachment);
 router.delete("/attachments/:id", isLoggedIn, deleteAttachment);
+router.post( "/tickets/:id/attachments", isLoggedIn, canAccessTicket, upload.single("file"), uploadAttachment );
 
 export default router;
