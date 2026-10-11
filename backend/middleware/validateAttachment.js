@@ -51,7 +51,31 @@ export const validateAttachment = async (req, res, next) => {
       !detected ||
       !allowedTypes[extension]?.includes(detected.mime)
     ) {
-      await fs.unlink(req.file.path);
+      await fs.unlink(req.file.path).catch((error) => {
+  if (error.code !== "ENOENT") {
+    throw error;
+  }
+});
+      
+if (
+  !detected ||
+  !allowedTypes[extension]?.includes(detected.mime)
+) {
+  console.log("Invalid file; deleting:", req.file.path);
+
+  await fs.unlink(req.file.path).catch((error) => {
+  if (error.code !== "ENOENT") {
+    throw error;
+  }
+});
+
+  console.log("Invalid file deleted successfully");
+
+  return res.status(400).json({
+    message: "File content does not match its extension",
+  });
+}
+
 
       return res.status(400).json({
         message: "File content does not match its extension",
