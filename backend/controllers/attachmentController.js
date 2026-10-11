@@ -2,6 +2,7 @@
 // controllers/attachmentController.js
 import fs from "fs/promises";
 import database from "../database/database.js";
+import path from "path";
 
 export const uploadAttachment = async (req, res) => {
   try {
@@ -115,17 +116,17 @@ export const getTicketAttachments = async (req, res) => {
 };
 
 
-import path from "path";
-import fs from "fs/promises";
-import database from "../config/database.js";
+
 
 export const downloadAttachment = async (req, res) => {
   try {
     const attachmentId = Number(req.params.id);
+    const userId = Number(req.user.userId);
+    const roleId = Number(req.user.roleId);
 
     if (!Number.isInteger(attachmentId) || attachmentId <= 0) {
       return res.status(400).json({
-        message: "Invalid attachment ID.",
+        message: "Invalid attachment ID",
       });
     }
 
@@ -134,41 +135,73 @@ export const downloadAttachment = async (req, res) => {
          a.id,
          a.ticket_id,
          a.original_name,
-         a.file_path
+         a.file_path,
+         t.requester_id,
+         t.assigned_agent_id
        FROM attachments a
+       JOIN tickets t ON t.id = a.ticket_id
        WHERE a.id = ?`,
       [attachmentId]
     );
 
     if (rows.length === 0) {
       return res.status(404).json({
-        message: "Attachment not found.",
+        message: "Attachment not found",
       });
     }
 
     const attachment = rows[0];
 
-    // Reuse the ticket authorization middleware's access rules.
-    // The download route should pass the attachment's ticket ID
-    // through a middleware specifically designed for attachments.
-    const allowedRoot = path.resolve("uploads", "tickets");
-    const absolutePath = path.resolve(attachment.file_path);
+    const allowed =
+      roleId === 3 ||
+      (roleId === 1 &&
+        Number(attachment.requester_id) === userId) ||
+      (roleId === 2 &&
+        Number(attachment.assigned_agent_id) === userId);
 
-    if (
-      !absolutePath.startsWith(allowedRoot + path.sep) ||
-      !(await fs.stat(absolutePath).catch(() => null))
-    ) {
-      return res.status(404).json({
-        message: "Attachment file not found.",
+    if (!allowed) {
+      return res.status(403).json({
+        message: "You cannot download this attachment",
       });
     }
 
-    return res.download(absolutePath, attachment.original_name);
+    const allowedRoot = path.resolve("uploads", "tickets");
+    const absolutePath = path.resolve(attachment.file_path);
+
+    if (!absolutePath.startsWith(allowedRoot + path.sep)) {
+      return res.status(404).json({
+        message: "Attachment file not found",
+      });
+    }
+
+    try {
+      await fs.access(absolutePath);
+    } catch {
+      return res.status(404).json({
+        message: "Attachment file not found",
+      });
+    }
+
+    return res.download(
+      absolutePath,
+      attachment.original_name,
+      (error) => {
+        if (error) {
+          console.error("File download error:", error);
+
+          if (!res.headersSent) {
+            res.status(500).json({
+              message: "Failed to download attachment",
+            });
+          }
+        }
+      }
+    );
   } catch (error) {
     console.error("Download attachment error:", error);
 
     return res.status(500).json({
-      message: "Failed to download attachment.",
+      message: "Failed to download attachment",
     });
   }
 };
