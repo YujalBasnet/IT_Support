@@ -1,3 +1,4 @@
+
 import { fileTypeFromFile } from "file-type";
 import fs from "fs/promises";
 import path from "path";
@@ -8,10 +9,17 @@ const allowedTypes = {
   ".png": ["image/png"],
   ".gif": ["image/gif"],
   ".pdf": ["application/pdf"],
-  ".doc": ["application/msword"],
-  ".docx": [
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  ],
+};
+
+const removeUploadedFile = async (filePath) => {
+  try {
+    await fs.unlink(filePath);
+  } catch (error) {
+    // The file may already have been removed.
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  }
 };
 
 export const validateAttachment = async (req, res, next) => {
@@ -22,75 +30,60 @@ export const validateAttachment = async (req, res, next) => {
   }
 
   try {
-    const extension = path.extname(
-      req.file.originalname
-    ).toLowerCase();
+    const extension = path
+      .extname(req.file.originalname)
+      .toLowerCase();
 
-    // Plain text files do not have a reliable binary signature.
+    // Basic text validation: reject files containing null bytes.
     if (extension === ".txt") {
       const content = await fs.readFile(req.file.path);
 
-      // Reject binary-like content, including null bytes.
       if (content.includes(0)) {
-        await fs.unlink(req.file.path);
+        await removeUploadedFile(req.file.path);
+
         return res.status(400).json({
           message: "Invalid text file content",
         });
       }
 
+      req.file.mimetype = "text/plain";
       return next();
     }
 
+    const expectedTypes = allowedTypes[extension];
     const detected = await fileTypeFromFile(req.file.path);
+
     console.log("FILE VALIDATION:", {
-  filename: req.file.originalname,
-  detectedType: detected?.mime ?? "unknown",
-});
+      filename: req.file.originalname,
+      detectedType: detected?.mime ?? "unknown",
+    });
 
     if (
+      !expectedTypes ||
       !detected ||
-      !allowedTypes[extension]?.includes(detected.mime)
+      !expectedTypes.includes(detected.mime)
     ) {
-      await fs.unlink(req.file.path).catch((error) => {
-  if (error.code !== "ENOENT") {
-    throw error;
-  }
-});
-      
-if (
-  !detected ||
-  !allowedTypes[extension]?.includes(detected.mime)
-) {
-  console.log("Invalid file; deleting:", req.file.path);
-
-  await fs.unlink(req.file.path).catch((error) => {
-  if (error.code !== "ENOENT") {
-    throw error;
-  }
-});
-
-  console.log("Invalid file deleted successfully");
-
-  return res.status(400).json({
-    message: "File content does not match its extension",
-  });
-}
-
+      await removeUploadedFile(req.file.path);
 
       return res.status(400).json({
         message: "File content does not match its extension",
       });
     }
 
-    // Use the detected MIME type for database metadata.
+    // Store the detected MIME type rather than trusting the request.
     req.file.mimetype = detected.mime;
 
-    next();
+    return next();
   } catch (error) {
-    if (req.file?.path) {
-      await fs.unlink(req.file.path).catch(() => {});
+    try {
+      await removeUploadedFile(req.file.path);
+    } catch (cleanupError) {
+      console.error(
+        "Attachment cleanup failed:",
+        cleanupError.message
+      );
     }
 
-    next(error);
+    return next(error);
   }
 };
