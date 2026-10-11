@@ -42,6 +42,10 @@ export const validateAttachment = async (req, res, next) => {
     }
 
     const detected = await fileTypeFromFile(req.file.path);
+    console.log("FILE VALIDATION:", {
+  filename: req.file.originalname,
+  detectedType: detected?.mime ?? "unknown",
+});
 
     if (
       !detected ||
