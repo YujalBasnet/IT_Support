@@ -205,3 +205,91 @@ export const downloadAttachment = async (req, res) => {
     });
   }
 };
+
+export const deleteAttachment = async (req, res) => {
+  try {
+    const attachmentId = Number(req.params.id);
+    const userId = Number(req.user.userId);
+    const roleId = Number(req.user.roleId);
+
+    if (!Number.isInteger(attachmentId) || attachmentId <= 0) {
+      return res.status(400).json({
+        message: "Invalid attachment ID",
+      });
+    }
+
+    const [rows] = await database.promise().query(
+      `SELECT
+         a.id,
+         a.uploaded_by,
+         a.file_path,
+         t.requester_id,
+         t.assigned_agent_id
+       FROM attachments a
+       JOIN tickets t ON t.id = a.ticket_id
+       WHERE a.id = ?`,
+      [attachmentId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        message: "Attachment not found",
+      });
+    }
+
+    const attachment = rows[0];
+
+    const canDelete =
+      roleId === 3 ||
+      (
+        Number(attachment.uploaded_by) === userId &&
+        (
+          (roleId === 1 &&
+            Number(attachment.requester_id) === userId) ||
+          (roleId === 2 &&
+            Number(attachment.assigned_agent_id) === userId)
+        )
+      );
+
+    if (!canDelete) {
+      return res.status(403).json({
+        message: "You cannot delete this attachment",
+      });
+    }
+
+    // Prevent deletion of files outside our upload directory.
+    const allowedRoot = path.resolve("uploads", "tickets");
+    const absolutePath = path.resolve(attachment.file_path);
+
+    if (!absolutePath.startsWith(allowedRoot + path.sep)) {
+      return res.status(400).json({
+        message: "Invalid attachment file path",
+      });
+    }
+
+    // Remove the physical file first.
+    try {
+      await fs.unlink(absolutePath);
+    } catch (error) {
+      if (error.code !== "ENOENT") {
+        throw error;
+      }
+    }
+
+    // Remove its database record.
+    await database.promise().query(
+      "DELETE FROM attachments WHERE id = ?",
+      [attachmentId]
+    );
+
+    return res.status(200).json({
+      message: "Attachment deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete attachment error:", error);
+
+    return res.status(500).json({
+      message: "Failed to delete attachment",
+    });
+  }
+};
