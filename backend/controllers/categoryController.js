@@ -192,6 +192,7 @@ export const updateCategory = async (req, res) => {
 };
 
 // PATCH /categories/:id/status
+
 export const updateCategoryStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -209,11 +210,40 @@ export const updateCategoryStatus = async (req, res) => {
       });
     }
 
+    const categoryId = Number(id);
+
+    // 1. Get the current category status
+    const [categories] = await db.query(
+      `SELECT id, name, is_active
+       FROM categories
+       WHERE id = ?`,
+      [categoryId]
+    );
+
+    if (categories.length === 0) {
+      return res.status(404).json({
+        message: "Category not found",
+      });
+    }
+
+    const category = categories[0];
+    const previousStatus = Boolean(category.is_active);
+
+    // 2. Skip the update if status is unchanged
+    if (previousStatus === is_active) {
+      return res.status(200).json({
+        message: is_active
+          ? "Category is already enabled"
+          : "Category is already disabled",
+      });
+    }
+
+    // 3. Update category status
     const [result] = await db.query(
       `UPDATE categories
        SET is_active = ?
        WHERE id = ?`,
-      [is_active ? 1 : 0, Number(id)]
+      [is_active ? 1 : 0, categoryId]
     );
 
     if (result.affectedRows === 0) {
@@ -222,6 +252,33 @@ export const updateCategoryStatus = async (req, res) => {
       });
     }
 
+    // 4. Record audit log
+    const auditLogId = await createAuditLog({
+      userId: Number(req.user.userId),
+      action: is_active
+        ? "CATEGORY_ENABLED"
+        : "CATEGORY_DISABLED",
+      resourceType: "category",
+      resourceId: categoryId,
+      changes: {
+        name: category.name,
+        before: {
+          is_active: previousStatus,
+        },
+        after: {
+          is_active,
+        },
+      },
+    });
+
+    if (auditLogId === null) {
+      console.warn(
+        "Category status updated, but audit logging failed:",
+        categoryId
+      );
+    }
+
+    // 5. Return success
     return res.status(200).json({
       message: is_active
         ? "Category enabled successfully"
@@ -229,11 +286,13 @@ export const updateCategoryStatus = async (req, res) => {
     });
   } catch (error) {
     console.error("Update category status error:", error);
+
     return res.status(500).json({
       message: "Failed to update category status",
     });
   }
 };
+
 
 // DELETE /categories/:id
 export const deleteCategory = async (req, res) => {
