@@ -8,7 +8,7 @@ import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/users.js";
 import teamRoutes from "./routes/team.js";
 import attachmentRoutes from "./routes/attachmentRoutes.js";
-
+import categoryRoutes from "./routes/categoryRoutes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
@@ -22,6 +22,7 @@ app.use("/tickets", ticketsRoutes);
 app.use("/users", userRoutes);
 app.use("/teams", teamRoutes);
 app.use("/attachments", attachmentRoutes);
+app.use("/categories", categoryRoutes);
 
 app.get("/", (req, res) => {
   res.send("IT Support Backend is running...");
