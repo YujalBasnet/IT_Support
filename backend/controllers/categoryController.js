@@ -1,5 +1,6 @@
 
 import database from "../database/database.js";
+import { createAuditLog } from "../services/auditLogService.js";
 
 const db = database.promise();
 
@@ -27,6 +28,7 @@ export const getCategories = async (req, res) => {
 };
 
 // POST /categories
+
 export const createCategory = async (req, res) => {
   try {
     const { name, description = null } = req.body;
@@ -51,17 +53,40 @@ export const createCategory = async (req, res) => {
     }
 
     const cleanName = name.trim();
+    const cleanDescription = description?.trim() || null;
 
+    // 1. Create category
     const [result] = await db.query(
       `INSERT INTO categories (name, description)
        VALUES (?, ?)`,
-      [cleanName, description?.trim() || null]
+      [cleanName, cleanDescription]
     );
 
+    // 2. Record admin audit log
+    const auditLogId = await createAuditLog({
+      userId: Number(req.user.userId),
+      action: "CATEGORY_CREATED",
+      resourceType: "category",
+      resourceId: result.insertId,
+      changes: {
+        name: cleanName,
+        description: cleanDescription,
+      },
+    });
+
+    if (auditLogId === null) {
+      console.warn(
+        "Category created, but audit logging failed:",
+        result.insertId
+      );
+    }
+
+    // 3. Return success
     return res.status(201).json({
       message: "Category created successfully",
       categoryId: result.insertId,
     });
+
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
       return res.status(409).json({
@@ -70,11 +95,13 @@ export const createCategory = async (req, res) => {
     }
 
     console.error("Create category error:", error);
+
     return res.status(500).json({
       message: "Failed to create category",
     });
   }
 };
+
 
 // PATCH /categories/:id
 export const updateCategory = async (req, res) => {
