@@ -86,60 +86,164 @@ database.query(historyQuery, historyValues, (historyError) => {
   });
 };
 
+
 export const getTickets = (req, res) => {
-  let query;
-  let values;
+  const userId = Number(req.user.userId);
+  const roleId = Number(req.user.roleId);
 
-  if (req.user.roleId === 1) {
-    // Employee: only their own tickets
-    query = `
-      SELECT *
-      FROM tickets
-      WHERE requester_id = ?
-      ORDER BY created_at DESC
-    `;
+  const {
+    search,
+    status,
+    priority,
+    category_id,
+    assigned_agent_id,
+    team_id,
+    requester_id,
+    page = "1",
+    limit = "10",
+    sortBy = "createdAt",
+    sortOrder = "desc",
+  } = req.query;
 
-    values = [req.user.userId];
-  } else if (req.user.roleId === 2) {
-    // Support agent: tickets assigned to them
-    query = `
-      SELECT *
-      FROM tickets
-      WHERE assigned_agent_id = ?
-      ORDER BY created_at DESC
-    `;
+  const pageNumber = Number(page);
+  const limitNumber = Number(limit);
 
-    values = [req.user.userId];
-  } else if (req.user.roleId === 3) {
-    // Admin: all tickets
-    query = `
-      SELECT *
-      FROM tickets
-      ORDER BY created_at DESC
-    `;
+  if (
+    !Number.isInteger(pageNumber) ||
+    pageNumber < 1 ||
+    !Number.isInteger(limitNumber) ||
+    limitNumber < 1 ||
+    limitNumber > 100
+  ) {
+    return res.status(400).json({
+      message: "Invalid pagination parameters",
+    });
+  }
 
-    values = [];
-  } else {
+  const allowedSortFields = {
+    createdAt: "created_at",
+    updatedAt: "updated_at",
+    priority: "priority",
+    status: "status",
+  };
+
+  if (!allowedSortFields[sortBy]) {
+    return res.status(400).json({
+      message: "Invalid sortBy parameter",
+    });
+  }
+
+  const order = String(sortOrder).toUpperCase();
+
+  if (!["ASC", "DESC"].includes(order)) {
+    return res.status(400).json({
+      message: "Invalid sortOrder parameter",
+    });
+  }
+
+  const conditions = [];
+  const values = [];
+
+  // Role-based ticket visibility
+  if (roleId === 1) {
+    conditions.push("requester_id = ?");
+    values.push(userId);
+  } else if (roleId === 2) {
+    conditions.push("assigned_agent_id = ?");
+    values.push(userId);
+  } else if (roleId !== 3) {
     return res.status(403).json({
       message: "Access denied",
     });
   }
 
-  database.query(query, values, (error, results) => {
-    if (error) {
-      console.error("Error fetching tickets:", error);
+  // Search
+  if (search) {
+    conditions.push(`
+      (
+        ticket_number LIKE ?
+        OR title LIKE ?
+        OR description LIKE ?
+      )
+    `);
 
+    const searchValue = `%${search}%`;
+    values.push(searchValue, searchValue, searchValue);
+  }
+
+  // Filtering
+  const filters = {
+    status,
+    priority,
+    category_id,
+    assigned_agent_id,
+    team_id,
+    requester_id,
+  };
+
+  for (const [field, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== "") {
+      conditions.push(`${field} = ?`);
+      values.push(value);
+    }
+  }
+
+  const whereClause = conditions.length
+    ? `WHERE ${conditions.join(" AND ")}`
+    : "";
+
+  const offset = (pageNumber - 1) * limitNumber;
+
+  const countQuery = `
+    SELECT COUNT(*) AS total
+    FROM tickets
+    ${whereClause}
+  `;
+
+  database.query(countQuery, values, (countError, countResult) => {
+    if (countError) {
+      console.error("Ticket count error:", countError);
       return res.status(500).json({
-        message: "Failed to fetch tickets",
+        message: "Failed to count tickets",
       });
     }
 
-    res.status(200).json({
-      message: "Tickets retrieved successfully",
-      tickets: results,
-    });
+    const total = countResult[0].total;
+
+    const ticketsQuery = `
+      SELECT *
+      FROM tickets
+      ${whereClause}
+      ORDER BY ${allowedSortFields[sortBy]} ${order}, id DESC
+      LIMIT ? OFFSET ?
+    `;
+
+    database.query(
+      ticketsQuery,
+      [...values, limitNumber, offset],
+      (error, tickets) => {
+        if (error) {
+          console.error("Error fetching tickets:", error);
+          return res.status(500).json({
+            message: "Failed to fetch tickets",
+          });
+        }
+
+        return res.status(200).json({
+          message: "Tickets retrieved successfully",
+          data: tickets,
+          pagination: {
+            page: pageNumber,
+            limit: limitNumber,
+            total,
+            totalPages: Math.ceil(total / limitNumber),
+          },
+        });
+      }
+    );
   });
 };
+
 
 
 export const getTicketById = (req, res) => {
