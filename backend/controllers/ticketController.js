@@ -1,5 +1,5 @@
 import database from "../database/database.js";
-
+import { sendEmail } from "../services/emailService.js";
 
 export const createTicket = (req, res) => {
   const { title, description, category_id, priority = "MEDIUM" } = req.body;
@@ -25,10 +25,7 @@ export const createTicket = (req, res) => {
   // Validate category ID
   const categoryId = Number(category_id);
 
-  if (
-    !Number.isSafeInteger(categoryId) ||
-    categoryId <= 0
-  ) {
+  if (!Number.isSafeInteger(categoryId) || categoryId <= 0) {
     return res.status(400).json({
       message: "Valid category ID is required",
     });
@@ -50,122 +47,148 @@ export const createTicket = (req, res) => {
     WHERE id = ?
   `;
 
-  database.query(
-    categoryQuery,
-    [categoryId],
-    (categoryError, categories) => {
-      if (categoryError) {
-        console.error("Error checking category:", categoryError);
+  database.query(categoryQuery, [categoryId], (categoryError, categories) => {
+    if (categoryError) {
+      console.error("Error checking category:", categoryError);
 
-        return res.status(500).json({
-          message: "Failed to validate category",
-        });
-      }
+      return res.status(500).json({
+        message: "Failed to validate category",
+      });
+    }
 
-      if (categories.length === 0) {
-        return res.status(400).json({
-          message: "Selected category does not exist",
-        });
-      }
+    if (categories.length === 0) {
+      return res.status(400).json({
+        message: "Selected category does not exist",
+      });
+    }
 
-      if (Number(categories[0].is_active) !== 1) {
-        return res.status(400).json({
-          message: "Selected category is disabled",
-        });
-      }
+    if (Number(categories[0].is_active) !== 1) {
+      return res.status(400).json({
+        message: "Selected category is disabled",
+      });
+    }
 
-      // Generate ticket number
-      const ticketNumber = `TKT-${Date.now()}`;
+    // Generate ticket number
+    const ticketNumber = `TKT-${Date.now()}`;
 
-      const insertQuery = `
+    const insertQuery = `
         INSERT INTO tickets
           (ticket_number, title, description,
            requester_id, category_id, priority)
         VALUES (?, ?, ?, ?, ?, ?)
       `;
 
-      const values = [
-        ticketNumber,
-        title.trim(),
-        description.trim(),
-        req.user.userId,
-        categoryId,
-        priority,
-      ];
+    const values = [
+      ticketNumber,
+      title.trim(),
+      description.trim(),
+      req.user.userId,
+      categoryId,
+      priority,
+    ];
 
-      database.query(insertQuery, values, (error, result) => {
-        if (error) {
-          console.error("Error creating ticket:", error);
+    database.query(insertQuery, values, (error, result) => {
+      if (error) {
+        console.error("Error creating ticket:", error);
 
-          if (error.code === "ER_DUP_ENTRY") {
-            return res.status(409).json({
-              message: "Ticket number collision. Please retry.",
-            });
-          }
-
-          return res.status(500).json({
-            message: "Failed to create ticket",
+        if (error.code === "ER_DUP_ENTRY") {
+          return res.status(409).json({
+            message: "Ticket number collision. Please retry.",
           });
         }
 
-        const ticketId = result.insertId;
+        return res.status(500).json({
+          message: "Failed to create ticket",
+        });
+      }
 
-        const historyQuery = `
+      const ticketId = result.insertId;
+
+      const historyQuery = `
           INSERT INTO ticket_history
             (ticket_id, user_id, action, previous_value, new_value)
           VALUES (?, ?, ?, ?, ?)
         `;
 
-        const historyValues = [
-          ticketId,
-          Number(req.user.userId),
-          "TICKET_CREATED",
-          null,
-          JSON.stringify({
-            ticket_number: ticketNumber,
-            title: title.trim(),
-            status: "OPEN",
-          }),
-        ];
+      const historyValues = [
+        ticketId,
+        Number(req.user.userId),
+        "TICKET_CREATED",
+        null,
+        JSON.stringify({
+          ticket_number: ticketNumber,
+          title: title.trim(),
+          status: "OPEN",
+        }),
+      ];
+
+      database.query(historyQuery, historyValues, (historyError) => {
+        if (historyError) {
+          console.error(
+            "Error recording ticket creation history:",
+            historyError,
+          );
+
+          return res.status(500).json({
+            message: "Ticket was created, but history logging failed",
+            ticketId,
+          });
+        }
+
+        const userEmailQuery = `
+              SELECT email
+              FROM users
+              WHERE id = ?`;
 
         database.query(
-          historyQuery,
-          historyValues,
-          (historyError) => {
-            if (historyError) {
-              console.error(
-                "Error recording ticket creation history:",
-                historyError
-              );
+          userEmailQuery,
+          [req.user.userId],
+          (emailError, users) => {
+            if (emailError) {
+              console.error("Failed to retrieve requester email:", emailError);
+            } else if (users.length > 0 && users[0].email) {
+              sendEmail({
+                to: users[0].email,
+                subject: `Ticket Created: ${ticketNumber}`,
+                text: `
+Hello,
 
-              return res.status(500).json({
-                message:
-                  "Ticket was created, but history logging failed",
-                ticketId,
+Your IT support ticket has been created successfully.
+
+Ticket Number: ${ticketNumber}
+Title: ${title.trim()}
+Priority: ${priority}
+Status: OPEN
+
+Our support team will review your request.
+
+Regards,
+IT Support Team
+        `.trim(),
+              }).catch((error) => {
+                console.error("Ticket creation email failed:", error.message);
               });
             }
-
-            return res.status(201).json({
-              message: "Ticket created successfully",
-              ticket: {
-                id: ticketId,
-                ticket_number: ticketNumber,
-                title: title.trim(),
-                description: description.trim(),
-                requester_id: req.user.userId,
-                category_id: categoryId,
-                priority,
-                status: "OPEN",
-              },
-            });
-          }
+          },
         );
+
+        return res.status(201).json({
+          message: "Ticket created successfully",
+          ticket: {
+            id: ticketId,
+            ticket_number: ticketNumber,
+            title: title.trim(),
+            description: description.trim(),
+            requester_id: req.user.userId,
+            category_id: categoryId,
+            priority,
+            status: "OPEN",
+          },
+        });
       });
-    }
-  );
+    });
+  });
 };
-
-
 
 export const getTickets = (req, res) => {
   const userId = Number(req.user.userId);
@@ -319,12 +342,10 @@ export const getTickets = (req, res) => {
             totalPages: Math.ceil(total / limitNumber),
           },
         });
-      }
+      },
     );
   });
 };
-
-
 
 export const getTicketById = (req, res) => {
   const ticketId = req.params.id;
@@ -353,20 +374,14 @@ export const getTicketById = (req, res) => {
     const ticket = results[0];
 
     // Employee can only view their own tickets
-    if (
-      req.user.roleId === 1 &&
-      ticket.requester_id !== req.user.userId
-    ) {
+    if (req.user.roleId === 1 && ticket.requester_id !== req.user.userId) {
       return res.status(403).json({
         message: "You are not allowed to view this ticket",
       });
     }
 
     // Support agent can only view tickets assigned to them
-    if (
-      req.user.roleId === 2 &&
-      ticket.assigned_agent_id !== req.user.userId
-    ) {
+    if (req.user.roleId === 2 && ticket.assigned_agent_id !== req.user.userId) {
       return res.status(403).json({
         message: "You are not allowed to view this ticket",
       });
@@ -385,9 +400,6 @@ export const getTicketById = (req, res) => {
     });
   });
 };
-
-
-
 
 export const assignTicket = (req, res) => {
   const ticketId = req.params.id;
@@ -464,7 +476,7 @@ export const assignTicket = (req, res) => {
                   if (membershipError) {
                     console.error(
                       "Error checking team membership:",
-                      membershipError
+                      membershipError,
                     );
                     return res.status(500).json({
                       message: "Failed to check team membership",
@@ -473,8 +485,7 @@ export const assignTicket = (req, res) => {
 
                   if (membershipResults.length === 0) {
                     return res.status(400).json({
-                      message:
-                        "Support agent does not belong to this team",
+                      message: "Support agent does not belong to this team",
                     });
                   }
 
@@ -498,71 +509,67 @@ export const assignTicket = (req, res) => {
                         });
                       }
 
-                      
-const historyQuery = `
+                      const historyQuery = `
   INSERT INTO ticket_history
     (ticket_id, user_id, action, previous_value, new_value)
   VALUES (?, ?, ?, ?, ?)
 `;
 
-const previousAssignment = JSON.stringify({
-  assigned_agent_id: existingTicket.assigned_agent_id,
-  team_id: existingTicket.team_id,
-  status: existingTicket.status,
-});
+                      const previousAssignment = JSON.stringify({
+                        assigned_agent_id: existingTicket.assigned_agent_id,
+                        team_id: existingTicket.team_id,
+                        status: existingTicket.status,
+                      });
 
-const newAssignment = JSON.stringify({
-  assigned_agent_id: Number(assigned_agent_id),
-  team_id: Number(team_id),
-  status: "ASSIGNED",
-});
+                      const newAssignment = JSON.stringify({
+                        assigned_agent_id: Number(assigned_agent_id),
+                        team_id: Number(team_id),
+                        status: "ASSIGNED",
+                      });
 
-database.query(
-  historyQuery,
-  [
-    Number(ticketId),
-    Number(req.user.userId),
-    "TICKET_ASSIGNED",
-    previousAssignment,
-    newAssignment,
-  ],
-  (historyError) => {
-    if (historyError) {
-      console.error("Error recording assignment history:", historyError);
+                      database.query(
+                        historyQuery,
+                        [
+                          Number(ticketId),
+                          Number(req.user.userId),
+                          "TICKET_ASSIGNED",
+                          previousAssignment,
+                          newAssignment,
+                        ],
+                        (historyError) => {
+                          if (historyError) {
+                            console.error(
+                              "Error recording assignment history:",
+                              historyError,
+                            );
 
-      return res.status(500).json({
-        message: "Ticket was assigned, but history logging failed",
-        ticketId: Number(ticketId),
-      });
-    }
+                            return res.status(500).json({
+                              message:
+                                "Ticket was assigned, but history logging failed",
+                              ticketId: Number(ticketId),
+                            });
+                          }
 
-    return res.status(200).json({
-      message: "Ticket assigned successfully",
-      ticketId: Number(ticketId),
-      assigned_agent_id: Number(assigned_agent_id),
-      team_id: Number(team_id),
-      status: "ASSIGNED",
-    });
-  }
-);
-
-                    }
+                          return res.status(200).json({
+                            message: "Ticket assigned successfully",
+                            ticketId: Number(ticketId),
+                            assigned_agent_id: Number(assigned_agent_id),
+                            team_id: Number(team_id),
+                            status: "ASSIGNED",
+                          });
+                        },
+                      );
+                    },
                   );
-                }
+                },
               );
-            }
+            },
           );
-        }
+        },
       );
-    }
+    },
   );
 };
-
-
-
-
-
-
 
 export const updateTicketStatus = (req, res) => {
   const ticketId = Number(req.params.id);
@@ -613,10 +620,7 @@ export const updateTicketStatus = (req, res) => {
       [ticketId],
       (selectError, results) => {
         if (selectError) {
-          return rollbackWithError(
-            selectError,
-            "Failed to fetch ticket"
-          );
+          return rollbackWithError(selectError, "Failed to fetch ticket");
         }
 
         if (results.length === 0) {
@@ -628,19 +632,13 @@ export const updateTicketStatus = (req, res) => {
         const ticket = results[0];
 
         // Check access before revealing transition rules.
-        if (
-          roleId === 1 &&
-          Number(ticket.requester_id) !== userId
-        ) {
+        if (roleId === 1 && Number(ticket.requester_id) !== userId) {
           return rollbackWithResponse(403, {
             message: "You are not allowed to update this ticket",
           });
         }
 
-        if (
-          roleId === 2 &&
-          Number(ticket.assigned_agent_id) !== userId
-        ) {
+        if (roleId === 2 && Number(ticket.assigned_agent_id) !== userId) {
           return rollbackWithResponse(403, {
             message: "You are not allowed to update this ticket",
           });
@@ -648,11 +646,7 @@ export const updateTicketStatus = (req, res) => {
 
         const allowedTransitions = {
           OPEN: ["ASSIGNED", "IN_PROGRESS", "CLOSED"],
-          ASSIGNED: [
-            "IN_PROGRESS",
-            "WAITING_FOR_USER",
-            "RESOLVED",
-          ],
+          ASSIGNED: ["IN_PROGRESS", "WAITING_FOR_USER", "RESOLVED"],
           IN_PROGRESS: ["WAITING_FOR_USER", "RESOLVED"],
           WAITING_FOR_USER: ["IN_PROGRESS", "RESOLVED"],
           RESOLVED: ["CLOSED", "REOPENED"],
@@ -713,62 +707,52 @@ export const updateTicketStatus = (req, res) => {
             updateValues = [status, ticketId];
         }
 
-        database.query(
-          updateQuery,
-          updateValues,
-          (updateError) => {
-            if (updateError) {
-              return rollbackWithError(
-                updateError,
-                "Failed to update ticket status"
-              );
-            }
+        database.query(updateQuery, updateValues, (updateError) => {
+          if (updateError) {
+            return rollbackWithError(
+              updateError,
+              "Failed to update ticket status",
+            );
+          }
 
-            const historyQuery = `
+          const historyQuery = `
               INSERT INTO ticket_history
                 (ticket_id, user_id, action, previous_value, new_value)
               VALUES (?, ?, ?, ?, ?)
             `;
 
-            database.query(
-              historyQuery,
-              [
-                ticketId,
-                userId,
-                "STATUS_UPDATED",
-                ticket.status,
-                status,
-              ],
-              (historyError) => {
-                if (historyError) {
-                  return rollbackWithError(
-                    historyError,
-                    "Failed to record ticket history"
-                  );
+          database.query(
+            historyQuery,
+            [ticketId, userId, "STATUS_UPDATED", ticket.status, status],
+            (historyError) => {
+              if (historyError) {
+                return rollbackWithError(
+                  historyError,
+                  "Failed to record ticket history",
+                );
+              }
+
+              database.commit((commitError) => {
+                if (commitError) {
+                  console.error("Transaction commit failed:", commitError);
+
+                  return database.rollback(() => {
+                    return res.status(500).json({
+                      message: "Failed to save ticket status and history",
+                    });
+                  });
                 }
 
-                database.commit((commitError) => {
-                  if (commitError) {
-                    console.error("Transaction commit failed:", commitError);
-
-                    return database.rollback(() => {
-                      return res.status(500).json({
-                        message: "Failed to save ticket status and history",
-                      });
-                    });
-                  }
-
-                  return res.status(200).json({
-                    message: "Ticket status updated successfully",
-                    ticketId,
-                    previousStatus: ticket.status,
-                    status,
-                  });
+                return res.status(200).json({
+                  message: "Ticket status updated successfully",
+                  ticketId,
+                  previousStatus: ticket.status,
+                  status,
                 });
-              }
-            );
-          }
-        );
+              });
+            },
+          );
+        });
 
         function rollbackWithResponse(httpStatus, body) {
           database.rollback((rollbackError) => {
@@ -793,13 +777,10 @@ export const updateTicketStatus = (req, res) => {
             });
           });
         }
-      }
+      },
     );
   });
 };
-
-
-
 
 export const getTicketHistory = (req, res) => {
   const { id } = req.params;
@@ -844,10 +825,7 @@ export const getTicketHistory = (req, res) => {
     }
 
     // Support agents can view history for tickets assigned to them.
-    if (
-      roleId === 2 &&
-      Number(ticket.assigned_agent_id) !== userId
-    ) {
+    if (roleId === 2 && Number(ticket.assigned_agent_id) !== userId) {
       return res.status(403).json({
         message: "You can only view history for tickets assigned to you",
       });
