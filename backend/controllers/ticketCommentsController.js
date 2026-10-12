@@ -192,10 +192,25 @@ IT Support Team
 
 
 // Get comments for a ticket
+
 export const getTicketComments = (req, res) => {
-  const ticketId = req.params.id;
-  const userId = req.user.userId;
+  const ticketId = Number(req.params.id);
+  const userId = Number(req.user.userId);
   const roleId = Number(req.user.roleId);
+
+  // Validate ticket ID
+  if (!Number.isInteger(ticketId) || ticketId <= 0) {
+    return res.status(400).json({
+      message: "Invalid ticket ID",
+    });
+  }
+
+  // Validate role
+  if (![1, 2, 3].includes(roleId)) {
+    return res.status(403).json({
+      message: "Access denied",
+    });
+  }
 
   const ticketQuery = `
     SELECT id, requester_id, assigned_agent_id
@@ -219,18 +234,20 @@ export const getTicketComments = (req, res) => {
 
     const ticket = tickets[0];
 
+    // Employees can only view their own tickets
     if (
       roleId === 1 &&
-      ticket.requester_id !== userId
+      Number(ticket.requester_id) !== userId
     ) {
       return res.status(403).json({
         message: "You cannot view comments on this ticket",
       });
     }
 
+    // Support agents can only view tickets assigned to them
     if (
       roleId === 2 &&
-      ticket.assigned_agent_id !== userId
+      Number(ticket.assigned_agent_id) !== userId
     ) {
       return res.status(403).json({
         message: "This ticket is not assigned to you",
@@ -271,11 +288,12 @@ export const getTicketComments = (req, res) => {
         }
 
         return res.status(200).json({
-          ticketId: Number(ticketId),
+          ticketId,
           comments,
         });
       }
     );
   });
 };
+
 
