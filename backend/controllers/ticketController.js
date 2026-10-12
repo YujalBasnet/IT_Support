@@ -1,90 +1,170 @@
 import database from "../database/database.js";
 
-export const createTicket = (req, res) => {
-  const { title, description, category_id, priority } = req.body;
 
-  // Validate required fields
-  if (!title || !description || !category_id) {
+export const createTicket = (req, res) => {
+  const { title, description, category_id, priority = "MEDIUM" } = req.body;
+
+  // Validate title and description
+  if (
+    typeof title !== "string" ||
+    !title.trim() ||
+    typeof description !== "string" ||
+    !description.trim()
+  ) {
     return res.status(400).json({
-      message: "Title, description, and category are required",
+      message: "Title and description are required",
     });
   }
 
-  // Generate a unique ticket number
-  const ticketNumber = `TKT-${Date.now()}`;
+  if (title.trim().length > 255) {
+    return res.status(400).json({
+      message: "Title must not exceed 255 characters",
+    });
+  }
 
-  const query = `
-    INSERT INTO tickets
-    (ticket_number, title, description, requester_id, category_id, priority)
-    VALUES (?, ?, ?, ?, ?, ?)
+  // Validate category ID
+  const categoryId = Number(category_id);
+
+  if (
+    !Number.isSafeInteger(categoryId) ||
+    categoryId <= 0
+  ) {
+    return res.status(400).json({
+      message: "Valid category ID is required",
+    });
+  }
+
+  // Validate priority
+  const allowedPriorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+
+  if (!allowedPriorities.includes(priority)) {
+    return res.status(400).json({
+      message: "Invalid ticket priority",
+    });
+  }
+
+  // Check that the category exists and is active
+  const categoryQuery = `
+    SELECT id, is_active
+    FROM categories
+    WHERE id = ?
   `;
 
-  const values = [
-    ticketNumber,
-    title,
-    description,
-    req.user.userId,
-    category_id,
-    priority || "MEDIUM",
-  ];
+  database.query(
+    categoryQuery,
+    [categoryId],
+    (categoryError, categories) => {
+      if (categoryError) {
+        console.error("Error checking category:", categoryError);
 
-  database.query(query, values, (error, result) => {
-    if (error) {
-      console.error("Error creating ticket:", error);
+        return res.status(500).json({
+          message: "Failed to validate category",
+        });
+      }
 
-      return res.status(500).json({
-        message: "Failed to create ticket",
+      if (categories.length === 0) {
+        return res.status(400).json({
+          message: "Selected category does not exist",
+        });
+      }
+
+      if (Number(categories[0].is_active) !== 1) {
+        return res.status(400).json({
+          message: "Selected category is disabled",
+        });
+      }
+
+      // Generate ticket number
+      const ticketNumber = `TKT-${Date.now()}`;
+
+      const insertQuery = `
+        INSERT INTO tickets
+          (ticket_number, title, description,
+           requester_id, category_id, priority)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `;
+
+      const values = [
+        ticketNumber,
+        title.trim(),
+        description.trim(),
+        req.user.userId,
+        categoryId,
+        priority,
+      ];
+
+      database.query(insertQuery, values, (error, result) => {
+        if (error) {
+          console.error("Error creating ticket:", error);
+
+          if (error.code === "ER_DUP_ENTRY") {
+            return res.status(409).json({
+              message: "Ticket number collision. Please retry.",
+            });
+          }
+
+          return res.status(500).json({
+            message: "Failed to create ticket",
+          });
+        }
+
+        const ticketId = result.insertId;
+
+        const historyQuery = `
+          INSERT INTO ticket_history
+            (ticket_id, user_id, action, previous_value, new_value)
+          VALUES (?, ?, ?, ?, ?)
+        `;
+
+        const historyValues = [
+          ticketId,
+          Number(req.user.userId),
+          "TICKET_CREATED",
+          null,
+          JSON.stringify({
+            ticket_number: ticketNumber,
+            title: title.trim(),
+            status: "OPEN",
+          }),
+        ];
+
+        database.query(
+          historyQuery,
+          historyValues,
+          (historyError) => {
+            if (historyError) {
+              console.error(
+                "Error recording ticket creation history:",
+                historyError
+              );
+
+              return res.status(500).json({
+                message:
+                  "Ticket was created, but history logging failed",
+                ticketId,
+              });
+            }
+
+            return res.status(201).json({
+              message: "Ticket created successfully",
+              ticket: {
+                id: ticketId,
+                ticket_number: ticketNumber,
+                title: title.trim(),
+                description: description.trim(),
+                requester_id: req.user.userId,
+                category_id: categoryId,
+                priority,
+                status: "OPEN",
+              },
+            });
+          }
+        );
       });
     }
-
-    
-const ticketId = result.insertId;
-
-const historyQuery = `
-  INSERT INTO ticket_history
-    (ticket_id, user_id, action, previous_value, new_value)
-  VALUES (?, ?, ?, ?, ?)
-`;
-
-const historyValues = [
-  ticketId,
-  Number(req.user.userId),
-  "TICKET_CREATED",
-  null,
-  JSON.stringify({
-    ticket_number: ticketNumber,
-    title,
-    status: "OPEN",
-  }),
-];
-
-database.query(historyQuery, historyValues, (historyError) => {
-  if (historyError) {
-    console.error("Error recording ticket creation history:", historyError);
-
-    return res.status(500).json({
-      message: "Ticket was created, but history logging failed",
-      ticketId,
-    });
-  }
-
-  return res.status(201).json({
-    message: "Ticket created successfully",
-    ticket: {
-      id: ticketId,
-      ticket_number: ticketNumber,
-      title,
-      description,
-      requester_id: req.user.userId,
-      category_id,
-      priority: priority || "MEDIUM",
-      status: "OPEN",
-    },
-  });
-});
-
-  });
+  );
 };
+
 
 
 export const getTickets = (req, res) => {
