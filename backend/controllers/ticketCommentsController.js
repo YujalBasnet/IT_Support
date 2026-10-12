@@ -1,5 +1,6 @@
 
 import database from "../database/database.js";
+import { sendEmail } from "../services/emailService.js";
 
 // Add a comment to a ticket
 
