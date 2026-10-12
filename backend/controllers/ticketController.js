@@ -799,12 +799,65 @@ export const updateTicketStatus = (req, res) => {
                   });
                 }
 
-                return res.status(200).json({
-                  message: "Ticket status updated successfully",
-                  ticketId,
-                  previousStatus: ticket.status,
-                  status,
-                });
+                
+database.query(
+  `
+    SELECT
+      t.ticket_number,
+      t.title,
+      t.priority,
+      u.email AS requester_email,
+      u.name AS requester_name
+    FROM tickets t
+    JOIN users u ON u.id = t.requester_id
+    WHERE t.id = ?
+  `,
+  [ticketId],
+  (notificationError, rows) => {
+    if (notificationError) {
+      console.error(
+        "Failed to fetch ticket notification details:",
+        notificationError
+      );
+    } else if (rows.length > 0 && rows[0].requester_email) {
+      const ticketDetails = rows[0];
+
+      sendEmail({
+        to: ticketDetails.requester_email,
+        subject: `Ticket Status Updated: ${ticketDetails.ticket_number}`,
+        text: `
+Hello ${ticketDetails.requester_name || "User"},
+
+The status of your support ticket has been updated.
+
+Ticket Number: ${ticketDetails.ticket_number}
+Title: ${ticketDetails.title}
+Priority: ${ticketDetails.priority}
+Previous Status: ${ticket.status}
+New Status: ${status}
+
+Please log in to the IT Support System to view your ticket.
+
+Regards,
+IT Support Team
+        `.trim(),
+      }).catch((emailError) => {
+        console.error(
+          "Ticket status notification email failed:",
+          emailError.message
+        );
+      });
+    }
+
+    return res.status(200).json({
+      message: "Ticket status updated successfully",
+      ticketId,
+      previousStatus: ticket.status,
+      status,
+    });
+  }
+);
+
               });
             },
           );
