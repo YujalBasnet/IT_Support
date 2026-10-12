@@ -536,28 +536,84 @@ export const assignTicket = (req, res) => {
                           previousAssignment,
                           newAssignment,
                         ],
-                        (historyError) => {
-                          if (historyError) {
-                            console.error(
-                              "Error recording assignment history:",
-                              historyError,
-                            );
+                        
+(historyError) => {
+  if (historyError) {
+    console.error(
+      "Error recording assignment history:",
+      historyError
+    );
 
-                            return res.status(500).json({
-                              message:
-                                "Ticket was assigned, but history logging failed",
-                              ticketId: Number(ticketId),
-                            });
-                          }
+    return res.status(500).json({
+      message: "Ticket was assigned, but history logging failed",
+      ticketId: Number(ticketId),
+    });
+  }
 
-                          return res.status(200).json({
-                            message: "Ticket assigned successfully",
-                            ticketId: Number(ticketId),
-                            assigned_agent_id: Number(assigned_agent_id),
-                            team_id: Number(team_id),
-                            status: "ASSIGNED",
-                          });
-                        },
+  // Retrieve ticket details and the assigned agent's email
+  const notificationQuery = `
+    SELECT
+      t.ticket_number,
+      t.title,
+      t.description,
+      t.priority,
+      u.email AS agent_email,
+      u.name AS agent_name
+    FROM tickets t
+    JOIN users u ON u.id = t.assigned_agent_id
+    WHERE t.id = ?
+  `;
+
+  database.query(
+    notificationQuery,
+    [ticketId],
+    (notificationError, rows) => {
+      if (notificationError) {
+        console.error(
+          "Failed to retrieve assignment email details:",
+          notificationError
+        );
+      } else if (rows.length > 0 && rows[0].agent_email) {
+        const ticket = rows[0];
+
+        sendEmail({
+          to: ticket.agent_email,
+          subject: `Ticket Assigned: ${ticket.ticket_number}`,
+          text: `
+Hello ${ticket.agent_name || "Support Agent"},
+
+A support ticket has been assigned to you.
+
+Ticket Number: ${ticket.ticket_number}
+Title: ${ticket.title}
+Priority: ${ticket.priority}
+Status: ASSIGNED
+
+Please log in to the IT Support System to review the ticket.
+
+Regards,
+IT Support Team
+          `.trim(),
+        }).catch((error) => {
+          console.error(
+            "Assignment notification email failed:",
+            error.message
+          );
+        });
+      }
+
+      // Email failure must not prevent a successful assignment response
+      return res.status(200).json({
+        message: "Ticket assigned successfully",
+        ticketId: Number(ticketId),
+        assigned_agent_id: Number(assigned_agent_id),
+        team_id: Number(team_id),
+        status: "ASSIGNED",
+      });
+    }
+  );
+}
+
                       );
                     },
                   );
