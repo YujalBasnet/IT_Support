@@ -101,21 +101,27 @@ export const getTeamById = async (req, res) => {
 };
 
 
+
 export const addTeamMember = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { user_id } = req.body;
+    const teamId = Number(req.params.id);
+    const userId = Number(req.body.user_id);
 
-    if (!Number.isInteger(user_id) || user_id <= 0) {
+    if (
+      !Number.isInteger(teamId) ||
+      teamId <= 0 ||
+      !Number.isInteger(userId) ||
+      userId <= 0
+    ) {
       return res.status(400).json({
-        message: "A valid user_id is required",
+        message: "Valid team ID and user_id are required",
       });
     }
 
-    // Check whether the team exists
+    // Check that the team exists.
     const [teams] = await database.promise().query(
       "SELECT id FROM support_teams WHERE id = ?",
-      [id]
+      [teamId]
     );
 
     if (teams.length === 0) {
@@ -124,10 +130,13 @@ export const addTeamMember = async (req, res) => {
       });
     }
 
-    // Check whether the user exists
+    // Only active support agents can be team members.
     const [users] = await database.promise().query(
-      "SELECT id FROM users WHERE id = ?",
-      [user_id]
+      `SELECT u.id, u.account_status, r.name AS role
+       FROM users u
+       JOIN roles r ON r.id = u.role_id
+       WHERE u.id = ?`,
+      [userId]
     );
 
     if (users.length === 0) {
@@ -136,11 +145,26 @@ export const addTeamMember = async (req, res) => {
       });
     }
 
-    // Prevent duplicate membership
+    const user = users[0];
+
+    if (user.role !== "SUPPORT_AGENT") {
+      return res.status(400).json({
+        message: "Only support agents can be added to a team",
+      });
+    }
+
+    if (user.account_status !== "ACTIVE") {
+      return res.status(400).json({
+        message: "Inactive users cannot be added to a team",
+      });
+    }
+
+    // Prevent duplicate membership.
     const [members] = await database.promise().query(
-      `SELECT id FROM team_members
+      `SELECT id
+       FROM team_members
        WHERE team_id = ? AND user_id = ?`,
-      [id, user_id]
+      [teamId, userId]
     );
 
     if (members.length > 0) {
@@ -152,15 +176,15 @@ export const addTeamMember = async (req, res) => {
     const [result] = await database.promise().query(
       `INSERT INTO team_members (team_id, user_id)
        VALUES (?, ?)`,
-      [id, user_id]
+      [teamId, userId]
     );
 
     return res.status(201).json({
       message: "Team member added successfully",
       member: {
         id: result.insertId,
-        team_id: Number(id),
-        user_id,
+        team_id: teamId,
+        user_id: userId,
       },
     });
   } catch (error) {
@@ -171,6 +195,7 @@ export const addTeamMember = async (req, res) => {
     });
   }
 };
+
 
 
 
