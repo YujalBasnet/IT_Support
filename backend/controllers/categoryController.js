@@ -365,6 +365,7 @@ export const updateCategoryStatus = async (req, res) => {
 
 
 // DELETE /categories/:id
+
 export const deleteCategory = async (req, res) => {
   try {
     const { id } = req.params;
@@ -375,9 +376,28 @@ export const deleteCategory = async (req, res) => {
       });
     }
 
+    const categoryId = Number(id);
+
+    // 1. Retrieve category details before deletion
+    const [categories] = await db.query(
+      `SELECT id, name, description, is_active
+       FROM categories
+       WHERE id = ?`,
+      [categoryId]
+    );
+
+    if (categories.length === 0) {
+      return res.status(404).json({
+        message: "Category not found",
+      });
+    }
+
+    const category = categories[0];
+
+    // 2. Delete category
     const [result] = await db.query(
       "DELETE FROM categories WHERE id = ?",
-      [Number(id)]
+      [categoryId]
     );
 
     if (result.affectedRows === 0) {
@@ -386,9 +406,34 @@ export const deleteCategory = async (req, res) => {
       });
     }
 
+    // 3. Record deletion audit log
+    const auditLogId = await createAuditLog({
+      userId: Number(req.user.userId),
+      action: "CATEGORY_DELETED",
+      resourceType: "category",
+      resourceId: categoryId,
+      changes: {
+        before: {
+          name: category.name,
+          description: category.description,
+          is_active: Boolean(category.is_active),
+        },
+        after: null,
+      },
+    });
+
+    if (auditLogId === null) {
+      console.warn(
+        "Category deleted, but audit logging failed:",
+        categoryId
+      );
+    }
+
+    // 4. Return success
     return res.status(200).json({
       message: "Category deleted successfully",
     });
+
   } catch (error) {
     if (error.code === "ER_ROW_IS_REFERENCED_2") {
       return res.status(409).json({
@@ -398,8 +443,10 @@ export const deleteCategory = async (req, res) => {
     }
 
     console.error("Delete category error:", error);
+
     return res.status(500).json({
       message: "Failed to delete category",
     });
   }
 };
+
