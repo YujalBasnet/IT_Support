@@ -104,6 +104,7 @@ export const createCategory = async (req, res) => {
 
 
 // PATCH /categories/:id
+
 export const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
@@ -144,22 +145,62 @@ export const updateCategory = async (req, res) => {
       });
     }
 
+    const categoryId = Number(id);
+
+    // 1. Get existing category details
+    const [categories] = await db.query(
+      `SELECT id, name, description
+       FROM categories
+       WHERE id = ?`,
+      [categoryId]
+    );
+
+    if (categories.length === 0) {
+      return res.status(404).json({
+        message: "Category not found",
+      });
+    }
+
+    const previousCategory = categories[0];
+
+    // 2. Prepare new values
+    const newName =
+      name !== undefined
+        ? name.trim()
+        : previousCategory.name;
+
+    const newDescription =
+      description !== undefined
+        ? description === null
+          ? null
+          : description.trim()
+        : previousCategory.description;
+
+    // 3. Skip if nothing changed
+    if (
+      previousCategory.name === newName &&
+      previousCategory.description === newDescription
+    ) {
+      return res.status(200).json({
+        message: "No category changes detected",
+      });
+    }
+
+    // 4. Update category
     const fields = [];
     const values = [];
 
     if (name !== undefined) {
       fields.push("name = ?");
-      values.push(name.trim());
+      values.push(newName);
     }
 
     if (description !== undefined) {
       fields.push("description = ?");
-      values.push(
-        description === null ? null : description.trim()
-      );
+      values.push(newDescription);
     }
 
-    values.push(Number(id));
+    values.push(categoryId);
 
     const [result] = await db.query(
       `UPDATE categories
@@ -174,9 +215,36 @@ export const updateCategory = async (req, res) => {
       });
     }
 
+    // 5. Record audit log
+    const auditLogId = await createAuditLog({
+      userId: Number(req.user.userId),
+      action: "CATEGORY_UPDATED",
+      resourceType: "category",
+      resourceId: categoryId,
+      changes: {
+        before: {
+          name: previousCategory.name,
+          description: previousCategory.description,
+        },
+        after: {
+          name: newName,
+          description: newDescription,
+        },
+      },
+    });
+
+    if (auditLogId === null) {
+      console.warn(
+        "Category updated, but audit logging failed:",
+        categoryId
+      );
+    }
+
+    // 6. Return success
     return res.status(200).json({
       message: "Category updated successfully",
     });
+
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
       return res.status(409).json({
@@ -185,11 +253,13 @@ export const updateCategory = async (req, res) => {
     }
 
     console.error("Update category error:", error);
+
     return res.status(500).json({
       message: "Failed to update category",
     });
   }
 };
+
 
 // PATCH /categories/:id/status
 
