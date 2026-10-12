@@ -401,185 +401,168 @@ export const getTicketById = (req, res) => {
   });
 };
 
-export const assignTicket = (req, res) => {
-  const ticketId = req.params.id;
-  const { assigned_agent_id, team_id } = req.body;
 
-  if (!assigned_agent_id || !team_id) {
+export const assignTicket = async (req, res) => {
+  const ticketId = Number(req.params.id);
+  const agentId = Number(req.body?.assigned_agent_id);
+  const teamId = Number(req.body?.team_id);
+  const userId = Number(req.user.userId);
+
+  if (
+    !Number.isSafeInteger(ticketId) || ticketId <= 0 ||
+    !Number.isSafeInteger(agentId) || agentId <= 0 ||
+    !Number.isSafeInteger(teamId) || teamId <= 0
+  ) {
     return res.status(400).json({
-      message: "Assigned agent and team are required",
+      message: "Valid ticket, agent, and team IDs are required",
     });
   }
 
-  // 1. Check whether the ticket exists
-  database.query(
-    "SELECT id, assigned_agent_id, team_id, status FROM tickets WHERE id = ?",
-    [ticketId],
-    (ticketError, ticketResults) => {
-      if (ticketError) {
-        console.error("Error checking ticket:", ticketError);
-        return res.status(500).json({
-          message: "Failed to check ticket",
-        });
-      }
+  const db = database.promise();
+  let transactionStarted = false;
+  let committed = false;
 
-      if (ticketResults.length === 0) {
-        return res.status(404).json({
-          message: "Ticket not found",
-        });
-      }
-      const existingTicket = ticketResults[0];
+  try {
+    await db.beginTransaction();
+    transactionStarted = true;
 
-      // 2. Check whether the team exists
-      database.query(
-        "SELECT id FROM support_teams WHERE id = ?",
-        [team_id],
-        (teamCheckError, teamCheckResults) => {
-          if (teamCheckError) {
-            console.error("Error checking team:", teamCheckError);
-            return res.status(500).json({
-              message: "Failed to check team",
-            });
-          }
-
-          if (teamCheckResults.length === 0) {
-            return res.status(404).json({
-              message: "Team not found",
-            });
-          }
-
-          // 3. Check whether the assigned user is a support agent
-          database.query(
-            "SELECT id FROM users WHERE id = ? AND role_id = 2",
-            [assigned_agent_id],
-            (agentError, agentResults) => {
-              if (agentError) {
-                console.error("Error checking support agent:", agentError);
-                return res.status(500).json({
-                  message: "Failed to check support agent",
-                });
-              }
-
-              if (agentResults.length === 0) {
-                return res.status(400).json({
-                  message: "Assigned user is not a valid support agent",
-                });
-              }
-
-              // 4. Check whether the support agent belongs to the team
-              database.query(
-                `SELECT team_id
-                 FROM team_members
-                 WHERE team_id = ? AND user_id = ?`,
-                [team_id, assigned_agent_id],
-                (membershipError, membershipResults) => {
-                  if (membershipError) {
-                    console.error(
-                      "Error checking team membership:",
-                      membershipError,
-                    );
-                    return res.status(500).json({
-                      message: "Failed to check team membership",
-                    });
-                  }
-
-                  if (membershipResults.length === 0) {
-                    return res.status(400).json({
-                      message: "Support agent does not belong to this team",
-                    });
-                  }
-
-                  // 5. Assign the ticket after all checks pass
-                  const query = `
-                    UPDATE tickets
-                    SET assigned_agent_id = ?,
-                        team_id = ?,
-                        status = 'ASSIGNED'
-                    WHERE id = ?
-                  `;
-
-                  database.query(
-                    query,
-                    [assigned_agent_id, team_id, ticketId],
-                    (updateError) => {
-                      if (updateError) {
-                        console.error("Error assigning ticket:", updateError);
-                        return res.status(500).json({
-                          message: "Failed to assign ticket",
-                        });
-                      }
-
-                      const historyQuery = `
-  INSERT INTO ticket_history
-    (ticket_id, user_id, action, previous_value, new_value)
-  VALUES (?, ?, ?, ?, ?)
-`;
-
-                      const previousAssignment = JSON.stringify({
-                        assigned_agent_id: existingTicket.assigned_agent_id,
-                        team_id: existingTicket.team_id,
-                        status: existingTicket.status,
-                      });
-
-                      const newAssignment = JSON.stringify({
-                        assigned_agent_id: Number(assigned_agent_id),
-                        team_id: Number(team_id),
-                        status: "ASSIGNED",
-                      });
-
-                      database.query(
-                        historyQuery,
-                        [
-                          Number(ticketId),
-                          Number(req.user.userId),
-                          "TICKET_ASSIGNED",
-                          previousAssignment,
-                          newAssignment,
-                        ],
-                        
-(historyError) => {
-  if (historyError) {
-    console.error(
-      "Error recording assignment history:",
-      historyError
+    // 1. Lock ticket row while assigning
+    const [tickets] = await db.query(
+      `SELECT id, assigned_agent_id, team_id, status
+       FROM tickets
+       WHERE id = ?
+       FOR UPDATE`,
+      [ticketId]
     );
 
+    if (tickets.length === 0) {
+      await db.rollback();
+      return res.status(404).json({
+        message: "Ticket not found",
+      });
+    }
+
+    const existingTicket = tickets[0];
+
+    // 2. Validate team
+    const [teams] = await db.query(
+      "SELECT id FROM support_teams WHERE id = ?",
+      [teamId]
+    );
+
+    if (teams.length === 0) {
+      await db.rollback();
+      return res.status(404).json({
+        message: "Team not found",
+      });
+    }
+
+    // 3. Validate support agent
+    const [agents] = await db.query(
+      "SELECT id FROM users WHERE id = ? AND role_id = 2",
+      [agentId]
+    );
+
+    if (agents.length === 0) {
+      await db.rollback();
+      return res.status(400).json({
+        message: "Assigned user is not a valid support agent",
+      });
+    }
+
+    // 4. Validate team membership
+    const [memberships] = await db.query(
+      `SELECT team_id
+       FROM team_members
+       WHERE team_id = ? AND user_id = ?`,
+      [teamId, agentId]
+    );
+
+    if (memberships.length === 0) {
+      await db.rollback();
+      return res.status(400).json({
+        message: "Support agent does not belong to this team",
+      });
+    }
+
+    // 5. Update ticket
+    await db.query(
+      `UPDATE tickets
+       SET assigned_agent_id = ?,
+           team_id = ?,
+           status = 'ASSIGNED'
+       WHERE id = ?`,
+      [agentId, teamId, ticketId]
+    );
+
+    // 6. Record assignment history
+    const previousAssignment = JSON.stringify({
+      assigned_agent_id: existingTicket.assigned_agent_id,
+      team_id: existingTicket.team_id,
+      status: existingTicket.status,
+    });
+
+    const newAssignment = JSON.stringify({
+      assigned_agent_id: agentId,
+      team_id: teamId,
+      status: "ASSIGNED",
+    });
+
+    await db.query(
+      `INSERT INTO ticket_history
+         (ticket_id, user_id, action, previous_value, new_value)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        ticketId,
+        userId,
+        "TICKET_ASSIGNED",
+        previousAssignment,
+        newAssignment,
+      ]
+    );
+
+    // 7. Commit both changes together
+    await db.commit();
+    committed = true;
+
+  } catch (error) {
+    console.error("Ticket assignment failed:", error);
+
+    if (transactionStarted && !committed) {
+      try {
+        await db.rollback();
+      } catch (rollbackError) {
+        console.error("Rollback failed:", rollbackError);
+      }
+    }
+
     return res.status(500).json({
-      message: "Ticket was assigned, but history logging failed",
-      ticketId: Number(ticketId),
+      message: "Failed to assign ticket",
     });
   }
 
-  // Retrieve ticket details and the assigned agent's email
-  const notificationQuery = `
-    SELECT
-      t.ticket_number,
-      t.title,
-      t.description,
-      t.priority,
-      u.email AS agent_email,
-      u.name AS agent_name
-    FROM tickets t
-    JOIN users u ON u.id = t.assigned_agent_id
-    WHERE t.id = ?
-  `;
+  // 8. Send email only after successful commit
+  try {
+    const [rows] = await db.query(
+      `SELECT
+         t.ticket_number,
+         t.title,
+         t.priority,
+         u.email AS agent_email,
+         u.name AS agent_name
+       FROM tickets t
+       JOIN users u ON u.id = t.assigned_agent_id
+       WHERE t.id = ?`,
+      [ticketId]
+    );
 
-  database.query(
-    notificationQuery,
-    [ticketId],
-    (notificationError, rows) => {
-      if (notificationError) {
-        console.error(
-          "Failed to retrieve assignment email details:",
-          notificationError
-        );
-      } else if (rows.length > 0 && rows[0].agent_email) {
-        const ticket = rows[0];
+    if (rows.length > 0 && rows[0].agent_email) {
+      const ticket = rows[0];
 
-        sendEmail({
-          to: ticket.agent_email,
-          subject: `Ticket Assigned: ${ticket.ticket_number}`,
-          text: `
+      sendEmail({
+        to: ticket.agent_email,
+        subject: `Ticket Assigned: ${ticket.ticket_number}`,
+        text: `
 Hello ${ticket.agent_name || "Support Agent"},
 
 A support ticket has been assigned to you.
@@ -593,39 +576,30 @@ Please log in to the IT Support System to review the ticket.
 
 Regards,
 IT Support Team
-          `.trim(),
-        }).catch((error) => {
-          console.error(
-            "Assignment notification email failed:",
-            error.message
-          );
-        });
-      }
-
-      // Email failure must not prevent a successful assignment response
-      return res.status(200).json({
-        message: "Ticket assigned successfully",
-        ticketId: Number(ticketId),
-        assigned_agent_id: Number(assigned_agent_id),
-        team_id: Number(team_id),
-        status: "ASSIGNED",
+        `.trim(),
+      }).catch((emailError) => {
+        console.error(
+          "Assignment notification email failed:",
+          emailError.message
+        );
       });
     }
-  );
-}
+  } catch (notificationError) {
+    console.error(
+      "Failed to retrieve assignment notification details:",
+      notificationError
+    );
+  }
 
-                      );
-                    },
-                  );
-                },
-              );
-            },
-          );
-        },
-      );
-    },
-  );
+  return res.status(200).json({
+    message: "Ticket assigned successfully",
+    ticketId,
+    assigned_agent_id: agentId,
+    team_id: teamId,
+    status: "ASSIGNED",
+  });
 };
+
 
 export const updateTicketStatus = (req, res) => {
   const ticketId = Number(req.params.id);
