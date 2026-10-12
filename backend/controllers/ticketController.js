@@ -379,20 +379,12 @@ database.query(
 
 
 
+
 export const updateTicketStatus = (req, res) => {
-  console.log("updateTicketStatus controller reached");
-  console.log("Ticket ID:", req.params.id);
-  console.log("Requested status:", req.body.status);
-  const ticketId = req.params.id;
+  const ticketId = Number(req.params.id);
+  const userId = Number(req.user.userId);
+  const roleId = Number(req.user.roleId);
   const { status } = req.body;
-
-  const userId = req.user.userId;
-  const roleId = req.user.roleId;
-
-  console.log("Logged-in user:", req.user);
-  console.log("User ID:", userId);
-  console.log("Role ID:", roleId);
-  
 
   const allowedStatuses = [
     "OPEN",
@@ -404,6 +396,12 @@ export const updateTicketStatus = (req, res) => {
     "REOPENED",
   ];
 
+  if (!Number.isInteger(ticketId) || ticketId <= 0) {
+    return res.status(400).json({
+      message: "Invalid ticket ID",
+    });
+  }
+
   if (!status || !allowedStatuses.includes(status)) {
     return res.status(400).json({
       message: "Invalid ticket status",
@@ -411,172 +409,211 @@ export const updateTicketStatus = (req, res) => {
     });
   }
 
-  // Find the ticket first
-  database.query(
-    "SELECT * FROM tickets WHERE id = ?",
-    [ticketId],
-    (error, results) => {
-      if (error) {
-        console.error("Error fetching ticket:", error);
-        return res.status(500).json({
-          message: "Failed to fetch ticket",
-        });
-      }
-
-      if (results.length === 0) {
-        return res.status(404).json({
-          message: "Ticket not found",
-        });
-      }
-
-      const ticket = results[0];
-      console.log("Current database status:", ticket.status);
-      const allowedTransitions = {
-        OPEN: ["ASSIGNED", "IN_PROGRESS", "CLOSED"],
-        ASSIGNED: ["IN_PROGRESS", "WAITING_FOR_USER", "RESOLVED"],
-        IN_PROGRESS: ["WAITING_FOR_USER", "RESOLVED"],
-        WAITING_FOR_USER: ["IN_PROGRESS", "RESOLVED"],
-        RESOLVED: ["CLOSED", "REOPENED"],
-        CLOSED: ["REOPENED"],
-        REOPENED: ["ASSIGNED", "IN_PROGRESS", "CLOSED"],
-    };
-
-      if (!allowedTransitions[ticket.status]?.includes(status)) {
-          return res.status(400).json({
-              message: `Cannot change ticket status from ${ticket.status} to ${status}`,
-             });
-          }
-
-      // Employees can only update their own tickets
-      if (roleId === 1 && ticket.requester_id !== userId) {
-        return res.status(403).json({
-          message: "You are not allowed to update this ticket",
-        });
-      }
-
-      // Support agents can only update tickets assigned to them
-      if (roleId === 2 && ticket.assigned_agent_id !== userId) {
-        return res.status(403).json({
-          message: "You are not allowed to update this ticket",
-        });
-      }
-
-      // Only employees, support agents, and admins are allowed
-      if (![1, 2, 3].includes(roleId)) {
-        return res.status(403).json({
-          message: "Access denied",
-        });
-      }
-
-     
-
-      
-let query;
-let values;
-
-switch (status) {
-  case "RESOLVED":
-    query = `
-      UPDATE tickets
-      SET status = ?,
-          resolved_at = CURRENT_TIMESTAMP,
-          closed_at = NULL
-      WHERE id = ?
-    `;
-    values = [status, ticketId];
-    break;
-
-  case "CLOSED":
-    query = `
-      UPDATE tickets
-      SET status = ?,
-          closed_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `;
-    values = [status, ticketId];
-    break;
-
-  case "REOPENED":
-    query = `
-      UPDATE tickets
-      SET status = ?,
-          resolved_at = NULL,
-          closed_at = NULL
-      WHERE id = ?
-    `;
-    values = [status, ticketId];
-    break;
-
-  default:
-    query = `
-      UPDATE tickets
-      SET status = ?,
-          resolved_at = NULL,
-          closed_at = NULL
-      WHERE id = ?
-    `;
-    values = [status, ticketId];
-}
-
-
-        if (typeof query !== "string" || !query.trim()) {
-  console.error("SQL query was not assigned:", { status, query });
-
-  return res.status(500).json({
-    message: "Internal error: status update query is missing",
-  });
-}
-
-      database.query(query, values, (updateError, result) => {
-  if (updateError) {
-    console.error("Error updating ticket status:", updateError);
-    return res.status(500).json({
-      message: "Failed to update ticket status",
+  if (![1, 2, 3].includes(roleId)) {
+    return res.status(403).json({
+      message: "Access denied",
     });
   }
 
-  console.log("Updated rows:", result.affectedRows);
-
-console.log("Updated rows:", result.affectedRows);
-
-// Record the status change in ticket_history
-const historyQuery = `
-  INSERT INTO ticket_history
-    (ticket_id, user_id, action, previous_value, new_value)
-  VALUES (?, ?, ?, ?, ?)
-`;
-
-const historyValues = [
-  Number(ticketId),
-  Number(userId),
-  "STATUS_UPDATED",
-  ticket.status,
-  status,
-];
-
-database.query(historyQuery, historyValues, (historyError) => {
-  if (historyError) {
-    console.error("Error recording ticket history:", historyError);
-
-    return res.status(500).json({
-      message: "Ticket status was updated, but history logging failed",
-      ticketId: Number(ticketId),
-      status,
-    });
-  }
-
-  return res.status(200).json({
-    message: "Ticket status updated successfully",
-    ticketId: Number(ticketId),
-    previousStatus: ticket.status,
-    status,
-  });
-});
-
-});
+  database.beginTransaction((transactionError) => {
+    if (transactionError) {
+      console.error("Failed to start transaction:", transactionError);
+      return res.status(500).json({
+        message: "Failed to update ticket status",
+      });
     }
-  );
+
+    // Lock the ticket while checking and updating its status.
+    database.query(
+      "SELECT * FROM tickets WHERE id = ? FOR UPDATE",
+      [ticketId],
+      (selectError, results) => {
+        if (selectError) {
+          return rollbackWithError(
+            selectError,
+            "Failed to fetch ticket"
+          );
+        }
+
+        if (results.length === 0) {
+          return rollbackWithResponse(404, {
+            message: "Ticket not found",
+          });
+        }
+
+        const ticket = results[0];
+
+        // Check access before revealing transition rules.
+        if (
+          roleId === 1 &&
+          Number(ticket.requester_id) !== userId
+        ) {
+          return rollbackWithResponse(403, {
+            message: "You are not allowed to update this ticket",
+          });
+        }
+
+        if (
+          roleId === 2 &&
+          Number(ticket.assigned_agent_id) !== userId
+        ) {
+          return rollbackWithResponse(403, {
+            message: "You are not allowed to update this ticket",
+          });
+        }
+
+        const allowedTransitions = {
+          OPEN: ["ASSIGNED", "IN_PROGRESS", "CLOSED"],
+          ASSIGNED: [
+            "IN_PROGRESS",
+            "WAITING_FOR_USER",
+            "RESOLVED",
+          ],
+          IN_PROGRESS: ["WAITING_FOR_USER", "RESOLVED"],
+          WAITING_FOR_USER: ["IN_PROGRESS", "RESOLVED"],
+          RESOLVED: ["CLOSED", "REOPENED"],
+          CLOSED: ["REOPENED"],
+          REOPENED: ["ASSIGNED", "IN_PROGRESS", "CLOSED"],
+        };
+
+        if (!allowedTransitions[ticket.status]?.includes(status)) {
+          return rollbackWithResponse(400, {
+            message: `Cannot change ticket status from ${ticket.status} to ${status}`,
+          });
+        }
+
+        let updateQuery;
+        let updateValues;
+
+        switch (status) {
+          case "RESOLVED":
+            updateQuery = `
+              UPDATE tickets
+              SET status = ?,
+                  resolved_at = CURRENT_TIMESTAMP,
+                  closed_at = NULL
+              WHERE id = ?
+            `;
+            updateValues = [status, ticketId];
+            break;
+
+          case "CLOSED":
+            updateQuery = `
+              UPDATE tickets
+              SET status = ?,
+                  closed_at = CURRENT_TIMESTAMP
+              WHERE id = ?
+            `;
+            updateValues = [status, ticketId];
+            break;
+
+          case "REOPENED":
+            updateQuery = `
+              UPDATE tickets
+              SET status = ?,
+                  resolved_at = NULL,
+                  closed_at = NULL
+              WHERE id = ?
+            `;
+            updateValues = [status, ticketId];
+            break;
+
+          default:
+            updateQuery = `
+              UPDATE tickets
+              SET status = ?,
+                  resolved_at = NULL,
+                  closed_at = NULL
+              WHERE id = ?
+            `;
+            updateValues = [status, ticketId];
+        }
+
+        database.query(
+          updateQuery,
+          updateValues,
+          (updateError) => {
+            if (updateError) {
+              return rollbackWithError(
+                updateError,
+                "Failed to update ticket status"
+              );
+            }
+
+            const historyQuery = `
+              INSERT INTO ticket_history
+                (ticket_id, user_id, action, previous_value, new_value)
+              VALUES (?, ?, ?, ?, ?)
+            `;
+
+            database.query(
+              historyQuery,
+              [
+                ticketId,
+                userId,
+                "STATUS_UPDATED",
+                ticket.status,
+                status,
+              ],
+              (historyError) => {
+                if (historyError) {
+                  return rollbackWithError(
+                    historyError,
+                    "Failed to record ticket history"
+                  );
+                }
+
+                database.commit((commitError) => {
+                  if (commitError) {
+                    console.error("Transaction commit failed:", commitError);
+
+                    return database.rollback(() => {
+                      return res.status(500).json({
+                        message: "Failed to save ticket status and history",
+                      });
+                    });
+                  }
+
+                  return res.status(200).json({
+                    message: "Ticket status updated successfully",
+                    ticketId,
+                    previousStatus: ticket.status,
+                    status,
+                  });
+                });
+              }
+            );
+          }
+        );
+
+        function rollbackWithResponse(httpStatus, body) {
+          database.rollback((rollbackError) => {
+            if (rollbackError) {
+              console.error("Transaction rollback failed:", rollbackError);
+            }
+
+            return res.status(httpStatus).json(body);
+          });
+        }
+
+        function rollbackWithError(error, message) {
+          console.error(message + ":", error);
+
+          database.rollback((rollbackError) => {
+            if (rollbackError) {
+              console.error("Transaction rollback failed:", rollbackError);
+            }
+
+            return res.status(500).json({
+              message,
+            });
+          });
+        }
+      }
+    );
+  });
 };
+
 
 
 
