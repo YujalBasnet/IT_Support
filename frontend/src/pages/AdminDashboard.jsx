@@ -6,6 +6,12 @@ export default function AdminDashboard() {
   const [tickets, setTickets] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+  total: 0,
+  open: 0,
+  inProgress: 0,
+  resolved: 0,
+});
 
   useEffect(() => {
     const fetchTickets = async () => {
@@ -13,6 +19,9 @@ export default function AdminDashboard() {
         const { data } = await api.get("/tickets", {
           params: { page: 1, limit: 5 },
         });
+
+        const { data: statsData } = await api.get("/tickets/stats");
+        setStats(statsData);
 
         // Support common paginated response formats.
         const ticketList = Array.isArray(data)
@@ -53,6 +62,33 @@ export default function AdminDashboard() {
         Welcome to your IT Support management dashboard.
       </p>
 
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+  <div className="rounded-xl bg-white p-5 shadow">
+    <p className="text-sm text-gray-500">Total Tickets</p>
+    <h2 className="mt-2 text-3xl font-bold">{stats.total}</h2>
+  </div>
+
+  <div className="rounded-xl bg-white p-5 shadow">
+    <p className="text-sm text-gray-500">Open Tickets</p>
+    <h2 className="mt-2 text-3xl font-bold text-blue-600">
+      {stats.open}
+    </h2>
+  </div>
+
+  <div className="rounded-xl bg-white p-5 shadow">
+    <p className="text-sm text-gray-500">In Progress</p>
+    <h2 className="mt-2 text-3xl font-bold text-amber-600">
+      {stats.inProgress}
+    </h2>
+  </div>
+
+  <div className="rounded-xl bg-white p-5 shadow">
+    <p className="text-sm text-gray-500">Resolved Tickets</p>
+    <h2 className="mt-2 text-3xl font-bold text-green-600">
+      {stats.resolved}
+    </h2>
+  </div>
+</div>
       <div className="mt-8 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <h2 className="text-xl font-semibold mb-4">
           Recent Tickets
