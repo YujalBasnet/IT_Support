@@ -3,16 +3,24 @@ import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
 export default function AdminDashboard() {
+  
   const [tickets, setTickets] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  
   const [stats, setStats] = useState({
   total: 0,
   open: 0,
   inProgress: 0,
   resolved: 0,
 });
+ 
+const [searchTerm, setSearchTerm] = useState("");
+const [statusFilter, setStatusFilter] = useState("ALL");
+const [priorityFilter, setPriorityFilter] = useState("ALL");
+
+  
 
   useEffect(() => {
     const fetchTickets = async () => {
@@ -78,6 +86,23 @@ const getPriorityStyle = (priority) => {
   return styles[priority] || "bg-gray-100 text-gray-700";
 };
 
+const filteredTickets = tickets.filter((ticket) => {
+  const search = searchTerm.trim().toLowerCase();
+
+  const matchesSearch =
+    (ticket.ticket_number || "").toLowerCase().includes(search) ||
+    (ticket.title || "").toLowerCase().includes(search);
+
+  const matchesStatus =
+    statusFilter === "ALL" || ticket.status === statusFilter;
+
+  const matchesPriority =
+    priorityFilter === "ALL" || ticket.priority === priorityFilter;
+
+  return matchesSearch && matchesStatus && matchesPriority;
+});
+
+
   return (
     <div>
       <h1 className="text-3xl font-bold text-slate-900">
@@ -116,9 +141,71 @@ const getPriorityStyle = (priority) => {
   </div>
 </div>
       <div className="mt-8 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <h2 className="text-xl font-semibold mb-4">
-          Recent Tickets
-        </h2>
+      
+<div className="mb-5">
+  <h2 className="text-xl font-semibold">
+    Recent Tickets
+  </h2>
+
+  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+    {/* Search */}
+    <input
+      type="text"
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      placeholder="Search ticket number or title..."
+      className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+    />
+
+    {/* Status filter */}
+    <select
+      value={statusFilter}
+      onChange={(e) => setStatusFilter(e.target.value)}
+      className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
+    >
+      <option value="ALL">All statuses</option>
+      <option value="OPEN">Open</option>
+      <option value="ASSIGNED">Assigned</option>
+      <option value="IN_PROGRESS">In Progress</option>
+      <option value="WAITING_FOR_USER">Waiting for User</option>
+      <option value="RESOLVED">Resolved</option>
+      <option value="CLOSED">Closed</option>
+      <option value="REOPENED">Reopened</option>
+    </select>
+
+    {/* Priority filter */}
+    <select
+      value={priorityFilter}
+      onChange={(e) => setPriorityFilter(e.target.value)}
+      className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
+    >
+      <option value="ALL">All priorities</option>
+      <option value="LOW">Low</option>
+      <option value="MEDIUM">Medium</option>
+      <option value="HIGH">High</option>
+      <option value="URGENT">Urgent</option>
+    </select>
+  </div>
+
+  <div className="mt-3 flex items-center justify-between">
+    <p className="text-sm text-slate-500">
+      Showing {filteredTickets.length} of {tickets.length} loaded tickets
+    </p>
+
+    <button
+      type="button"
+      onClick={() => {
+        setSearchTerm("");
+        setStatusFilter("ALL");
+        setPriorityFilter("ALL");
+      }}
+      className="text-sm font-medium text-blue-600 hover:underline"
+    >
+      Clear filters
+    </button>
+  </div>
+</div>
+
 
         {loading ? (
           <p>Loading tickets...</p>
@@ -141,8 +228,9 @@ const getPriorityStyle = (priority) => {
               </thead>
 
               
+
 <tbody>
-  {tickets.map((ticket) => (
+  {filteredTickets.map((ticket) => (
     <tr
       key={ticket.id}
       onClick={() => navigate(`/tickets/${ticket.id}`)}
@@ -178,6 +266,7 @@ const getPriorityStyle = (priority) => {
     </tr>
   ))}
 </tbody>
+
 
             </table>
           </div>
