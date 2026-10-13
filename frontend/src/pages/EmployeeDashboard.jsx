@@ -1,4 +1,9 @@
+import React from 'react'
 
-export default function EmployeeDashboard() {
-  return <h1 className="text-2xl font-bold">Employee Dashboard</h1>;
+const EmployeeDashboard = () => {
+  return (
+    <div>EmployeeDashboard</div>
+  )
 }
+
+export default EmployeeDashboard;
