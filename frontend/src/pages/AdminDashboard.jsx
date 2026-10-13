@@ -26,6 +26,16 @@ const [pagination, setPagination] = useState({
   total: 0,
   totalPages: 0,
 });
+
+const [teams, setTeams] = useState([]);
+const [selectedTicket, setSelectedTicket] = useState(null);
+const [selectedTeam, setSelectedTeam] = useState("");
+const [teamMembers, setTeamMembers] = useState([]);
+const [selectedAgent, setSelectedAgent] = useState("");
+const [assigning, setAssigning] = useState(false);
+const [assignError, setAssignError] = useState("");
+const [assignSuccess, setAssignSuccess] = useState("");
+
   
   useEffect(() => {
   setCurrentPage(1);
@@ -126,6 +136,122 @@ const filteredTickets = tickets.filter((ticket) => {
   return matchesSearch && matchesStatus && matchesPriority;
 });
 
+useEffect(() => {
+  const fetchTeams = async () => {
+    try {
+      const { data } = await api.get("/teams");
+      setTeams(Array.isArray(data.teams) ? data.teams : []);
+    } catch (err) {
+      console.error("Failed to load teams:", err);
+      setAssignError(
+        err.response?.data?.message || "Failed to load support teams."
+      );
+    }
+  };
+
+  fetchTeams();
+}, []);
+
+
+const handleAssignTicket = async (e) => {
+  e.preventDefault();
+
+  if (!selectedTicket || !selectedTeam || !selectedAgent) {
+    setAssignError("Please select a team and an agent.");
+    return;
+  }
+
+  setAssigning(true);
+  setAssignError("");
+  setAssignSuccess("");
+
+  try {
+    await api.patch(`/tickets/${selectedTicket.id}/assign`, {
+      assigned_agent_id: Number(selectedAgent),
+      team_id: Number(selectedTeam),
+    });
+
+    setAssignSuccess(
+      `Ticket ${selectedTicket.ticket_number} assigned successfully.`
+    );
+
+    setSelectedTicket(null);
+    setSelectedTeam("");
+    setSelectedAgent("");
+    setTeamMembers([]);
+
+    // Refresh the ticket list and statistics.
+    const { data } = await api.get("/tickets", {
+      params: {
+        page: currentPage,
+        limit: 5,
+        search: searchTerm.trim() || undefined,
+        status: statusFilter === "ALL" ? undefined : statusFilter,
+        priority: priorityFilter === "ALL" ? undefined : priorityFilter,
+      },
+    });
+
+    const ticketList = Array.isArray(data.data)
+      ? data.data
+      : Array.isArray(data.tickets)
+      ? data.tickets
+      : Array.isArray(data)
+      ? data
+      : [];
+
+    setTickets(ticketList);
+    setPagination(
+      data.pagination || {
+        page: currentPage,
+        limit: 5,
+        total: ticketList.length,
+        totalPages: 1,
+      }
+    );
+
+    const { data: statsData } = await api.get("/tickets/stats");
+    setStats(statsData);
+  } catch (err) {
+    console.error("Failed to assign ticket:", err);
+    setAssignError(
+      err.response?.data?.message || "Failed to assign ticket."
+    );
+  } finally {
+    setAssigning(false);
+  }
+};
+
+
+const handleTeamChange = async (e) => {
+  const teamId = e.target.value;
+
+  setSelectedTeam(teamId);
+  setSelectedAgent("");
+  setTeamMembers([]);
+  setAssignError("");
+
+  if (!teamId) return;
+
+  try {
+    const { data } = await api.get(`/teams/${teamId}/members`);
+
+    // Supports common response shapes.
+    const members = Array.isArray(data.members)
+      ? data.members
+      : Array.isArray(data.teamMembers)
+      ? data.teamMembers
+      : [];
+
+    setTeamMembers(members);
+  } catch (err) {
+    console.error("Failed to load team members:", err);
+    setAssignError(
+      err.response?.data?.message || "Failed to load team members."
+    );
+  }
+};
+
+
 
   return (
     <div>
@@ -165,7 +291,103 @@ const filteredTickets = tickets.filter((ticket) => {
   </div>
 </div>
       <div className="mt-8 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      
+
+
+<div className="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+  <h2 className="text-xl font-semibold text-slate-900">
+    Assign Ticket
+  </h2>
+
+  <p className="mt-1 text-sm text-slate-500">
+    Select a ticket, support team, and team member.
+  </p>
+
+  {assignSuccess && (
+    <p className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">
+      {assignSuccess}
+    </p>
+  )}
+
+  {assignError && (
+    <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+      {assignError}
+    </p>
+  )}
+
+  <form
+    onSubmit={handleAssignTicket}
+    className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4"
+  >
+    <select
+      value={selectedTicket?.id || ""}
+      onChange={(e) => {
+        const ticket = tickets.find(
+          (item) => String(item.id) === e.target.value
+        );
+
+        setSelectedTicket(ticket || null);
+        setAssignError("");
+        setAssignSuccess("");
+      }}
+      className="rounded-lg border border-slate-300 px-3 py-2"
+      required
+    >
+      <option value="">Select ticket</option>
+      {tickets.map((ticket) => (
+        <option key={ticket.id} value={ticket.id}>
+          {ticket.ticket_number} — {ticket.title}
+        </option>
+      ))}
+    </select>
+
+    <select
+      value={selectedTeam}
+      onChange={handleTeamChange}
+      className="rounded-lg border border-slate-300 px-3 py-2"
+      required
+    >
+      <option value="">Select team</option>
+      {teams.map((team) => (
+        <option key={team.id} value={team.id}>
+          {team.name}
+        </option>
+      ))}
+    </select>
+
+    <select
+      value={selectedAgent}
+      onChange={(e) => setSelectedAgent(e.target.value)}
+      className="rounded-lg border border-slate-300 px-3 py-2"
+      required
+      disabled={!selectedTeam || teamMembers.length === 0}
+    >
+      <option value="">Select support agent</option>
+      {teamMembers.map((member) => {
+        const agentId = member.user_id ?? member.id;
+        const agentName =
+          member.name ||
+          member.full_name ||
+          member.email ||
+          `Agent ${agentId}`;
+
+        return (
+          <option key={agentId} value={agentId}>
+            {agentName}
+          </option>
+        );
+      })}
+    </select>
+
+    <button
+      type="submit"
+      disabled={assigning || !selectedTicket || !selectedTeam || !selectedAgent}
+      className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {assigning ? "Assigning..." : "Assign Ticket"}
+    </button>
+  </form>
+</div>
+   
 <div className="mb-5">
   <h2 className="text-xl font-semibold">
     Recent Tickets
@@ -258,7 +480,7 @@ const filteredTickets = tickets.filter((ticket) => {
                       </td>
                     </tr>
                   ) : (
-                    tickets.map((ticket) => (
+                    filteredTickets.map((ticket) => (
                       <tr
                         key={ticket.id}
                         onClick={() => navigate(`/tickets/${ticket.id}`)}
