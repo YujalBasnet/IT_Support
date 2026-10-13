@@ -19,15 +19,31 @@ export default function AdminDashboard() {
 const [searchTerm, setSearchTerm] = useState("");
 const [statusFilter, setStatusFilter] = useState("ALL");
 const [priorityFilter, setPriorityFilter] = useState("ALL");
-
+const [currentPage, setCurrentPage] = useState(1);
+const [pagination, setPagination] = useState({
+  page: 1,
+  limit: 5,
+  total: 0,
+  totalPages: 0,
+});
   
-
+  useEffect(() => {
+  setCurrentPage(1);
+}, [searchTerm, statusFilter, priorityFilter]);
   useEffect(() => {
     const fetchTickets = async () => {
       try {
-        const { data } = await api.get("/tickets", {
-          params: { page: 1, limit: 5 },
-        });
+      
+const { data } = await api.get("/tickets", {
+  params: {
+    page: currentPage,
+    limit: 5,
+    search: searchTerm.trim() || undefined,
+    status: statusFilter === "ALL" ? undefined : statusFilter,
+    priority: priorityFilter === "ALL" ? undefined : priorityFilter,
+  },
+});
+
 
         const { data: statsData } = await api.get("/tickets/stats");
         setStats(statsData);
@@ -46,6 +62,14 @@ const [priorityFilter, setPriorityFilter] = useState("ALL");
         }
 
         setTickets(ticketList);
+setPagination(
+  data.pagination || {
+    page: currentPage,
+    limit: 5,
+    total: ticketList.length,
+    totalPages: 1,
+  }
+);
       } catch (err) {
         console.error("Failed to load tickets:", err);
         setError(
@@ -59,7 +83,7 @@ const [priorityFilter, setPriorityFilter] = useState("ALL");
     };
 
     fetchTickets();
-  }, []);
+  }, [currentPage, searchTerm, statusFilter, priorityFilter]);
 
   const getStatusStyle = (status) => {
   const styles = {
@@ -212,64 +236,98 @@ const filteredTickets = tickets.filter((ticket) => {
         ) : error ? (
           <p className="text-red-600">{error}</p>
         ) : tickets.length === 0 ? (
-          <p className="text-slate-500">
-            No tickets found.
-          </p>
+          <p className="text-slate-500">No tickets found.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b text-slate-500 text-sm">
-                  <th className="py-3">Ticket Number</th>
-                  <th className="py-3">Title</th>
-                  <th className="py-3">Status</th>
-                  <th className="py-3">Priority</th>
-                </tr>
-              </thead>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b text-slate-500 text-sm">
+                    <th className="py-3">Ticket Number</th>
+                    <th className="py-3">Title</th>
+                    <th className="py-3">Status</th>
+                    <th className="py-3">Priority</th>
+                  </tr>
+                </thead>
 
-              
+                <tbody>
+                  {tickets.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-slate-500">
+                        No tickets match your search or filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    tickets.map((ticket) => (
+                      <tr
+                        key={ticket.id}
+                        onClick={() => navigate(`/tickets/${ticket.id}`)}
+                        className="border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors"
+                      >
+                        <td className="py-4 font-medium text-blue-600">
+                          {ticket.ticket_number}
+                        </td>
 
-<tbody>
-  {filteredTickets.map((ticket) => (
-    <tr
-      key={ticket.id}
-      onClick={() => navigate(`/tickets/${ticket.id}`)}
-      className="border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors"
-    >
-      <td className="py-4 font-medium text-blue-600">
-        {ticket.ticket_number}
-      </td>
+                        <td className="py-4 text-slate-800">{ticket.title}</td>
 
-      <td className="py-4 text-slate-800">
-        {ticket.title}
-      </td>
+                        <td className="py-4">
+                          <span
+                            className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(
+                              ticket.status
+                            )}`}
+                          >
+                            {(ticket.status || "").replace(/_/g, " ")}
+                          </span>
+                        </td>
 
-      <td className="py-4">
-        <span
-          className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(
-            ticket.status
-          )}`}
-        >
-          {(ticket.status || "").replace(/_/g, " ")}
-        </span>
-      </td>
+                        <td className="py-4">
+                          <span
+                            className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${getPriorityStyle(
+                              ticket.priority
+                            )}`}
+                          >
+                            {ticket.priority}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-      <td className="py-4">
-        <span
-          className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${getPriorityStyle(
-            ticket.priority
-          )}`}
-        >
-          {ticket.priority}
-        </span>
-      </td>
-    </tr>
-  ))}
-</tbody>
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-slate-500">
+                Page {pagination.page} of {Math.max(pagination.totalPages, 1)}
+                {" · "}
+                {pagination.total} total tickets
+              </p>
 
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={currentPage <= 1 || loading}
+                  onClick={() => setCurrentPage((page) => page - 1)}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Previous
+                </button>
 
-            </table>
-          </div>
+                <button
+                  type="button"
+                  disabled={
+                    loading ||
+                    pagination.totalPages === 0 ||
+                    currentPage >= pagination.totalPages
+                  }
+                  onClick={() => setCurrentPage((page) => page + 1)}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>
