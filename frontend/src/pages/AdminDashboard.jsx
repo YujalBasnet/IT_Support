@@ -1,11 +1,12 @@
-
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
 export default function AdminDashboard() {
   const [tickets, setTickets] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
   total: 0,
   open: 0,
@@ -51,6 +52,31 @@ export default function AdminDashboard() {
 
     fetchTickets();
   }, []);
+
+  const getStatusStyle = (status) => {
+  const styles = {
+    OPEN: "bg-blue-100 text-blue-700",
+    ASSIGNED: "bg-purple-100 text-purple-700",
+    IN_PROGRESS: "bg-amber-100 text-amber-700",
+    WAITING_FOR_USER: "bg-orange-100 text-orange-700",
+    RESOLVED: "bg-green-100 text-green-700",
+    CLOSED: "bg-slate-200 text-slate-700",
+    REOPENED: "bg-red-100 text-red-700",
+  };
+
+  return styles[status] || "bg-gray-100 text-gray-700";
+};
+
+const getPriorityStyle = (priority) => {
+  const styles = {
+    LOW: "bg-slate-100 text-slate-700",
+    MEDIUM: "bg-blue-100 text-blue-700",
+    HIGH: "bg-orange-100 text-orange-700",
+    URGENT: "bg-red-100 text-red-700",
+  };
+
+  return styles[priority] || "bg-gray-100 text-gray-700";
+};
 
   return (
     <div>
@@ -114,27 +140,45 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
 
-              <tbody>
-                {tickets.map((ticket) => (
-                  <tr
-                    key={ticket.id}
-                    className="border-b border-slate-100"
-                  >
-                    <td className="py-4">
-                      {ticket.ticket_number}
-                    </td>
-                    <td className="py-4">
-                      {ticket.title}
-                    </td>
-                    <td className="py-4">
-                      {ticket.status}
-                    </td>
-                    <td className="py-4">
-                      {ticket.priority}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+              
+<tbody>
+  {tickets.map((ticket) => (
+    <tr
+      key={ticket.id}
+      onClick={() => navigate(`/tickets/${ticket.id}`)}
+      className="border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors"
+    >
+      <td className="py-4 font-medium text-blue-600">
+        {ticket.ticket_number}
+      </td>
+
+      <td className="py-4 text-slate-800">
+        {ticket.title}
+      </td>
+
+      <td className="py-4">
+        <span
+          className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(
+            ticket.status
+          )}`}
+        >
+          {(ticket.status || "").replace(/_/g, " ")}
+        </span>
+      </td>
+
+      <td className="py-4">
+        <span
+          className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${getPriorityStyle(
+            ticket.priority
+          )}`}
+        >
+          {ticket.priority}
+        </span>
+      </td>
+    </tr>
+  ))}
+</tbody>
+
             </table>
           </div>
         )}
