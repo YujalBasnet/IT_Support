@@ -7,6 +7,7 @@ import Login from "./components/form/Login.jsx";
 import Layout from "./layout/layout.jsx";
 import AuthCallback from "./pages/AuthCallback.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
+import TicketDetails from "./pages/TicketDetails.jsx";
 
 
 
@@ -68,6 +69,10 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
           {
             path: "/admin",
             element: <AdminDashboard />,
+          },
+          {
+            path: "/tickets/:id",
+            element: <TicketDetails/>,
           },
         ],
       },
