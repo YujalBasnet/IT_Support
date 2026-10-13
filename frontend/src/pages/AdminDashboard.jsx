@@ -1,4 +1,108 @@
 
+import { useEffect, useState } from "react";
+import api from "../services/api";
+
 export default function AdminDashboard() {
-  return <h1 className="text-2xl font-bold">Admin Dashboard</h1>;
+  const [tickets, setTickets] = useState([]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTickets = async () => {
+      try {
+        const { data } = await api.get("/tickets", {
+          params: { page: 1, limit: 5 },
+        });
+
+        // Support common paginated response formats.
+        const ticketList = Array.isArray(data)
+          ? data
+          : Array.isArray(data.data)
+          ? data.data
+          : Array.isArray(data.tickets)
+          ? data.tickets
+          : null;
+
+        if (!ticketList) {
+          throw new Error("Unexpected tickets response format");
+        }
+
+        setTickets(ticketList);
+      } catch (err) {
+        console.error("Failed to load tickets:", err);
+        setError(
+          err.response?.data?.message ||
+          err.message ||
+          "Failed to load tickets"
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTickets();
+  }, []);
+
+  return (
+    <div>
+      <h1 className="text-3xl font-bold text-slate-900">
+        Admin Dashboard
+      </h1>
+
+      <p className="mt-2 text-slate-500">
+        Welcome to your IT Support management dashboard.
+      </p>
+
+      <div className="mt-8 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h2 className="text-xl font-semibold mb-4">
+          Recent Tickets
+        </h2>
+
+        {loading ? (
+          <p>Loading tickets...</p>
+        ) : error ? (
+          <p className="text-red-600">{error}</p>
+        ) : tickets.length === 0 ? (
+          <p className="text-slate-500">
+            No tickets found.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b text-slate-500 text-sm">
+                  <th className="py-3">Ticket Number</th>
+                  <th className="py-3">Title</th>
+                  <th className="py-3">Status</th>
+                  <th className="py-3">Priority</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {tickets.map((ticket) => (
+                  <tr
+                    key={ticket.id}
+                    className="border-b border-slate-100"
+                  >
+                    <td className="py-4">
+                      {ticket.ticket_number}
+                    </td>
+                    <td className="py-4">
+                      {ticket.title}
+                    </td>
+                    <td className="py-4">
+                      {ticket.status}
+                    </td>
+                    <td className="py-4">
+                      {ticket.priority}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
