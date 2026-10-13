@@ -5,6 +5,8 @@ import AgentDashboard from "./pages/AgentDashboard.jsx";
 import AdminDashboard from "./pages/AdminDashboard.jsx";
 import Login from "./components/form/Login.jsx";
 import Layout from "./layout/layout.jsx";
+import AuthCallback from "./pages/AuthCallback.jsx";
+import ProtectedRoute from "./components/ProtectedRoute.jsx";
 
 
 
@@ -20,31 +22,64 @@ import Layout from "./layout/layout.jsx";
     element: <Login />,
   },
   {
-    element: <Layout />,
+    path: "/auth/callback",
+    element: <AuthCallback />,
+  },
+
+  // Employee routes
+  {
+    element: <ProtectedRoute allowedRoles={[1]} />,
     children: [
       {
-        path: "/employee",
-        element: <EmployeeDashboard />,
-      },
-      {
-        path: "/agent",
-        element: <AgentDashboard />,
-      },
-      {
-        path: "/admin",
-        element: <AdminDashboard />,
+        element: <Layout />,
+        children: [
+          {
+            path: "/employee",
+            element: <EmployeeDashboard />,
+          },
+        ],
       },
     ],
   },
+
+  // Support agent routes
+  {
+    element: <ProtectedRoute allowedRoles={[2]} />,
+    children: [
+      {
+        element: <Layout />,
+        children: [
+          {
+            path: "/agent",
+            element: <AgentDashboard />,
+          },
+        ],
+      },
+    ],
+  },
+
+  // Admin routes
+  {
+    element: <ProtectedRoute allowedRoles={[3]} />,
+    children: [
+      {
+        element: <Layout />,
+        children: [
+          {
+            path: "/admin",
+            element: <AdminDashboard />,
+          },
+        ],
+      },
+    ],
+  },
+
   {
     path: "*",
     element: <Navigate to="/login" replace />,
   },
 ]);
 
-const App = () => {
+export default function App() {
   return <RouterProvider router={router} />;
-};
-
-export default App;
-
+}

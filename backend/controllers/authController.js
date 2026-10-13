@@ -1,6 +1,10 @@
 import { OAuth2Client } from "google-auth-library";
 import jwt from "jsonwebtoken";
 import database from "../database/database.js";
+import {
+  createLoginCode,
+  consumeLoginCode,
+} from "../services/oauthCodeStore.js";
 
 const googleClient = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
@@ -112,17 +116,22 @@ export const googleCallback = async (req, res) => {
       }
     );
 
-    res.json({
-      message: "Login successful",
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        profile_image: user.profile_image,
-        role_id: user.role_id,
-      },
-    });
+    
+const loginCode = createLoginCode({
+  token,
+  user: {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    profile_image: user.profile_image,
+    role_id: user.role_id,
+  },
+});
+
+return res.redirect(
+  `http://localhost:5173/auth/callback?code=${loginCode}`
+);
+
 
   } catch (error) {
     console.error("Google authentication error:", error);
@@ -174,5 +183,29 @@ export const getMe = async (req, res) => {
 export const logout = (req, res) => {
   res.json({
     message: "Logout successful",
+  });
+};
+
+
+export const exchangeLoginCode = (req, res) => {
+  const { code } = req.body ?? {};
+
+  if (typeof code !== "string" || !code) {
+    return res.status(400).json({
+      message: "Login code is required",
+    });
+  }
+
+  const loginData = consumeLoginCode(code);
+
+  if (!loginData) {
+    return res.status(400).json({
+      message: "Login code is invalid or expired",
+    });
+  }
+
+  return res.status(200).json({
+    message: "Login successful",
+    ...loginData,
   });
 };
