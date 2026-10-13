@@ -952,3 +952,32 @@ export const getTicketHistory = (req, res) => {
     });
   });
 };
+
+
+export const getTicketStats = async (req, res) => {
+  try {
+    const [rows] = await database.promise().query(`
+      SELECT
+        COUNT(*) AS total,
+        SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END) AS open,
+        SUM(CASE WHEN status = 'IN_PROGRESS' THEN 1 ELSE 0 END) AS inProgress,
+        SUM(CASE WHEN status = 'RESOLVED' THEN 1 ELSE 0 END) AS resolved
+      FROM tickets
+    `);
+
+    const stats = rows[0];
+
+    return res.status(200).json({
+      total: Number(stats.total),
+      open: Number(stats.open),
+      inProgress: Number(stats.inProgress),
+      resolved: Number(stats.resolved),
+    });
+  } catch (error) {
+    console.error("Get ticket stats error:", error);
+
+    return res.status(500).json({
+      message: "Failed to retrieve ticket statistics",
+    });
+  }
+};
