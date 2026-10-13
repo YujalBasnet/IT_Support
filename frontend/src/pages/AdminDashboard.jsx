@@ -17,6 +17,7 @@ export default function AdminDashboard() {
 });
  
 const [searchTerm, setSearchTerm] = useState("");
+const [debouncedSearch, setDebouncedSearch] = useState("");
 const [statusFilter, setStatusFilter] = useState("ALL");
 const [priorityFilter, setPriorityFilter] = useState("ALL");
 const [currentPage, setCurrentPage] = useState(1);
@@ -35,20 +36,30 @@ const [selectedAgent, setSelectedAgent] = useState("");
 const [assigning, setAssigning] = useState(false);
 const [assignError, setAssignError] = useState("");
 const [assignSuccess, setAssignSuccess] = useState("");
+useEffect(() => {
+  const timer = setTimeout(() => {
+    console.log("Debounced search term:", searchTerm);
+    setDebouncedSearch(searchTerm);
+  }, 900);
+
+  return () => clearTimeout(timer);
+}, [searchTerm]);
 
   
   useEffect(() => {
   setCurrentPage(1);
-}, [searchTerm, statusFilter, priorityFilter]);
+}, [debouncedSearch, statusFilter, priorityFilter]);
   useEffect(() => {
     const fetchTickets = async () => {
+      setLoading(true);
+      setError("");
       try {
       
 const { data } = await api.get("/tickets", {
   params: {
     page: currentPage,
     limit: 5,
-    search: searchTerm.trim() || undefined,
+    search: debouncedSearch || undefined,
     status: statusFilter === "ALL" ? undefined : statusFilter,
     priority: priorityFilter === "ALL" ? undefined : priorityFilter,
   },
@@ -81,19 +92,22 @@ setPagination(
   }
 );
       } catch (err) {
-        console.error("Failed to load tickets:", err);
-        setError(
-          err.response?.data?.message ||
-          err.message ||
-          "Failed to load tickets"
-        );
-      } finally {
-        setLoading(false);
-      }
+  console.error("Failed to load tickets:", err);
+
+  setError(
+    err.response?.data?.message ||
+      err.message ||
+      "Failed to load tickets"
+  );
+
+  setTickets([]);
+} finally {
+  setLoading(false);
+}
     };
 
     fetchTickets();
-  }, [currentPage, searchTerm, statusFilter, priorityFilter]);
+  }, [currentPage, debouncedSearch, statusFilter, priorityFilter]);
 
   const getStatusStyle = (status) => {
   const styles = {
@@ -120,21 +134,9 @@ const getPriorityStyle = (priority) => {
   return styles[priority] || "bg-gray-100 text-gray-700";
 };
 
-const filteredTickets = tickets.filter((ticket) => {
-  const search = searchTerm.trim().toLowerCase();
+const filteredTickets = tickets;
+  
 
-  const matchesSearch =
-    (ticket.ticket_number || "").toLowerCase().includes(search) ||
-    (ticket.title || "").toLowerCase().includes(search);
-
-  const matchesStatus =
-    statusFilter === "ALL" || ticket.status === statusFilter;
-
-  const matchesPriority =
-    priorityFilter === "ALL" || ticket.priority === priorityFilter;
-
-  return matchesSearch && matchesStatus && matchesPriority;
-});
 
 useEffect(() => {
   const fetchTeams = async () => {
@@ -185,7 +187,7 @@ const handleAssignTicket = async (e) => {
       params: {
         page: currentPage,
         limit: 5,
-        search: searchTerm.trim() || undefined,
+        search: debouncedSearch || undefined,
         status: statusFilter === "ALL" ? undefined : statusFilter,
         priority: priorityFilter === "ALL" ? undefined : priorityFilter,
       },
