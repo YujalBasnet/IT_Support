@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Users, Users2, Tag, ArrowRight } from "lucide-react";
 import api from "../services/api";
 
 export default function AdminDashboard() {
@@ -424,17 +425,66 @@ const handleTeamChange = async (e) => {
     </h2>
   </div>
 </div>
-      <div className="mt-8 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      {/* Management Modules Quick Links */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-8">
+        <div
+          onClick={() => navigate("/admin/users")}
+          className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:border-rose-300 hover:shadow-md transition cursor-pointer flex items-center justify-between group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-rose-50 text-rose-600 rounded-xl group-hover:bg-rose-100 transition">
+              <Users size={22} />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900 text-sm">User Directory</h3>
+              <p className="text-xs text-slate-500">Manage user roles & access</p>
+            </div>
+          </div>
+          <ArrowRight size={18} className="text-slate-300 group-hover:text-rose-600 transition" />
+        </div>
 
+        <div
+          onClick={() => navigate("/admin/teams")}
+          className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:border-purple-300 hover:shadow-md transition cursor-pointer flex items-center justify-between group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-purple-50 text-purple-600 rounded-xl group-hover:bg-purple-100 transition">
+              <Users2 size={22} />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900 text-sm">Support Teams</h3>
+              <p className="text-xs text-slate-500">Organize agent rosters</p>
+            </div>
+          </div>
+          <ArrowRight size={18} className="text-slate-300 group-hover:text-purple-600 transition" />
+        </div>
 
-<div className="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-  <h2 className="text-xl font-semibold text-slate-900">
-    Assign Ticket
-  </h2>
+        <div
+          onClick={() => navigate("/admin/categories")}
+          className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:border-emerald-300 hover:shadow-md transition cursor-pointer flex items-center justify-between group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl group-hover:bg-emerald-100 transition">
+              <Tag size={22} />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900 text-sm">Ticket Categories</h3>
+              <p className="text-xs text-slate-500">Add or disable categories</p>
+            </div>
+          </div>
+          <ArrowRight size={18} className="text-slate-300 group-hover:text-emerald-600 transition" />
+        </div>
+      </div>
 
-  <p className="mt-1 text-sm text-slate-500">
-    Select a ticket, support team, and team member.
-  </p>
+      {/* Assign Ticket Card */}
+      <div className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-xl font-semibold text-slate-900">
+          Assign Ticket
+        </h2>
+
+        <p className="mt-1 text-sm text-slate-500">
+          Select a ticket, support team, and team member.
+        </p>
   
 <div className="mt-4">
   <label
@@ -547,7 +597,9 @@ const handleTeamChange = async (e) => {
   </form>
 </div>
    
-<div className="mb-5">
+{/* Ticket Queue Section */}
+<div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+  <div className="mb-5">
   {searching && (
   <p className="mt-2 text-sm text-blue-600">
     Searching tickets...
