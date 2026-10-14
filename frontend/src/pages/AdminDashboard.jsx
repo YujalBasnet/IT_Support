@@ -36,14 +36,6 @@ const [assignmentSearch, setAssignmentSearch] = useState("");
 const [debouncedAssignmentSearch, setDebouncedAssignmentSearch] = useState("");
 const [assignmentLoading, setAssignmentLoading] = useState(false);
 
-const [assignmentPage, setAssignmentPage] = useState(1);
-
-const [assignmentPagination, setAssignmentPagination] = useState({
-  page: 1,
-  limit: 10,
-  total: 0,
-  totalPages: 0,
-});
 
 
 const [selectedTicket, setSelectedTicket] = useState(null);

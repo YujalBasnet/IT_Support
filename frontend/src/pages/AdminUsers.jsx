@@ -4,11 +4,9 @@ import {
   Search,
   Shield,
   UserCheck,
-  UserX,
   RefreshCw,
   AlertCircle,
   CheckCircle2,
-  Filter,
 } from "lucide-react";
 import api from "../services/api";
 
