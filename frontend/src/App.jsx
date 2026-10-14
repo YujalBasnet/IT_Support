@@ -11,15 +11,12 @@ import TicketDetails from "./pages/TicketDetails.jsx";
 import AdminUsers from "./pages/AdminUsers.jsx";
 import AdminTeams from "./pages/AdminTeams.jsx";
 import AdminCategories from "./pages/AdminCategories.jsx";
-
-
-
-
+import LandingPage from "./pages/LandingPage.jsx";
 
   const router = createBrowserRouter([
   {
     path: "/",
-    element: <Navigate to="/login" replace />,
+    element: <LandingPage />,
   },
   {
     path: "/login",
