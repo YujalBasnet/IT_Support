@@ -50,8 +50,9 @@ useEffect(() => {
   setCurrentPage(1);
 }, [debouncedSearch, statusFilter, priorityFilter]);
   useEffect(() => {
+    const controller = new AbortController();
     const fetchTickets = async () => {
-      setLoading(true);
+      // setLoading(true);
       setError("");
       try {
       
@@ -63,11 +64,12 @@ const { data } = await api.get("/tickets", {
     status: statusFilter === "ALL" ? undefined : statusFilter,
     priority: priorityFilter === "ALL" ? undefined : priorityFilter,
   },
+  signal: controller.signal,
 });
 
 
-        const { data: statsData } = await api.get("/tickets/stats");
-        setStats(statsData);
+        // const { data: statsData } = await api.get("/tickets/stats");
+        // setStats(statsData);
 
         // Support common paginated response formats.
         const ticketList = Array.isArray(data)
@@ -92,12 +94,14 @@ setPagination(
   }
 );
       } catch (err) {
+  if (err.code === "ERR_CANCELED") return;
+
   console.error("Failed to load tickets:", err);
 
   setError(
     err.response?.data?.message ||
-      err.message ||
-      "Failed to load tickets"
+    err.message ||
+    "Failed to load tickets"
   );
 
   setTickets([]);
@@ -107,7 +111,43 @@ setPagination(
     };
 
     fetchTickets();
-  }, [currentPage, debouncedSearch, statusFilter, priorityFilter]);
+
+return () => {
+  controller.abort();
+};
+}, [currentPage, debouncedSearch, statusFilter, priorityFilter]);
+
+
+
+
+
+// NEW: Fetch dashboard statistics separately
+useEffect(() => {
+  const controller = new AbortController();
+
+  const fetchStats = async () => {
+    try {
+      const { data } = await api.get("/tickets/stats", {
+        signal: controller.signal,
+      });
+
+      setStats(data);
+    } catch (err) {
+      if (err.code === "ERR_CANCELED") return;
+
+      console.error("Failed to load ticket statistics:", err);
+    }
+  };
+
+  fetchStats();
+
+  return () => controller.abort();
+}, []);
+
+
+
+
+
 
   const getStatusStyle = (status) => {
   const styles = {
@@ -437,7 +477,7 @@ const handleTeamChange = async (e) => {
 
   <div className="mt-3 flex items-center justify-between">
     <p className="text-sm text-slate-500">
-      Showing {filteredTickets.length} of {tickets.length} loaded tickets
+      Showing {tickets.length} of {pagination.total} tickets
     </p>
 
     <button
