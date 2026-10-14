@@ -6,7 +6,7 @@ export default function AdminDashboard() {
   
   const [tickets, setTickets] = useState([]);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   
   const [stats, setStats] = useState({
@@ -29,6 +29,12 @@ const [pagination, setPagination] = useState({
 });
 
 const [teams, setTeams] = useState([]);
+
+const [assignmentTickets, setAssignmentTickets] = useState([]);
+const [assignmentSearch, setAssignmentSearch] = useState("");
+const [debouncedAssignmentSearch, setDebouncedAssignmentSearch] = useState("");
+const [assignmentLoading, setAssignmentLoading] = useState(false);
+
 const [selectedTicket, setSelectedTicket] = useState(null);
 const [selectedTeam, setSelectedTeam] = useState("");
 const [teamMembers, setTeamMembers] = useState([]);
@@ -36,6 +42,7 @@ const [selectedAgent, setSelectedAgent] = useState("");
 const [assigning, setAssigning] = useState(false);
 const [assignError, setAssignError] = useState("");
 const [assignSuccess, setAssignSuccess] = useState("");
+const [searching, setSearching] = useState(false);
 useEffect(() => {
   const timer = setTimeout(() => {
     console.log("Debounced search term:", searchTerm);
@@ -52,7 +59,7 @@ useEffect(() => {
   useEffect(() => {
     const controller = new AbortController();
     const fetchTickets = async () => {
-      // setLoading(true);
+      setSearching(true);
       setError("");
       try {
       
@@ -106,7 +113,11 @@ setPagination(
 
   setTickets([]);
 } finally {
-  setLoading(false);
+  if(!controller.signal.aborted){
+    setSearching(false);
+    setLoading(false);
+  }
+ 
 }
     };
 
@@ -193,6 +204,57 @@ useEffect(() => {
 
   fetchTeams();
 }, []);
+
+useEffect(() => {
+  const timer = setTimeout(() => {
+    setDebouncedAssignmentSearch(assignmentSearch.trim());
+  }, 500);
+
+  return () => clearTimeout(timer);
+}, [assignmentSearch]);
+
+useEffect(() => {
+  const controller = new AbortController();
+
+  const fetchAssignmentTickets = async () => {
+    setAssignmentLoading(true);
+
+    try {
+      const { data } = await api.get("/tickets", {
+        params: {
+          page: 1,
+          limit: 10,
+          search: debouncedAssignmentSearch || undefined,
+        },
+        signal: controller.signal,
+      });
+
+      const ticketList = Array.isArray(data.data)
+        ? data.data
+        : Array.isArray(data.tickets)
+        ? data.tickets
+        : Array.isArray(data)
+        ? data
+        : [];
+
+      setAssignmentTickets(ticketList);
+    } catch (err) {
+      if (err.code === "ERR_CANCELED") return;
+
+      console.error("Failed to load assignment tickets:", err);
+      setAssignmentTickets([]);
+    } finally {
+      if (!controller.signal.aborted) {
+        setAssignmentLoading(false);
+      }
+    }
+  };
+
+  fetchAssignmentTickets();
+
+  return () => controller.abort();
+}, [debouncedAssignmentSearch]);
+
 
 
 const handleAssignTicket = async (e) => {
@@ -297,13 +359,30 @@ const handleTeamChange = async (e) => {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-slate-900">
-        Admin Dashboard
-      </h1>
+      
+<div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+  <div>
+    <p className="mb-1 text-sm font-medium text-blue-600">
+      IT SUPPORT MANAGEMENT
+    </p>
 
-      <p className="mt-2 text-slate-500">
-        Welcome to your IT Support management dashboard.
-      </p>
+    <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+      Admin Dashboard
+    </h1>
+
+    <p className="mt-2 text-sm text-slate-500">
+      Monitor support tickets, manage assignments, and track team performance.
+    </p>
+  </div>
+
+  <div className="flex items-center gap-2">
+    <span className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
+      <span className="h-2 w-2 rounded-full bg-green-500" />
+      Admin Workspace
+    </span>
+  </div>
+</div>
+
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
   <div className="rounded-xl bg-white p-5 shadow">
@@ -343,6 +422,31 @@ const handleTeamChange = async (e) => {
   <p className="mt-1 text-sm text-slate-500">
     Select a ticket, support team, and team member.
   </p>
+  
+<div className="mt-4">
+  <label
+    htmlFor="assignment-ticket-search"
+    className="mb-2 block text-sm font-medium text-slate-700"
+  >
+    Search ticket for assignment
+  </label>
+
+  <input
+    id="assignment-ticket-search"
+    type="text"
+    value={assignmentSearch}
+    onChange={(e) => setAssignmentSearch(e.target.value)}
+    placeholder="Enter ticket number or title..."
+    className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
+  />
+
+  {assignmentLoading && (
+    <p className="mt-2 text-sm text-blue-600">
+      Searching tickets...
+    </p>
+  )}
+</div>
+
 
   {assignSuccess && (
     <p className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">
@@ -363,7 +467,7 @@ const handleTeamChange = async (e) => {
     <select
       value={selectedTicket?.id || ""}
       onChange={(e) => {
-        const ticket = tickets.find(
+        const ticket = assignmentTickets.find(
           (item) => String(item.id) === e.target.value
         );
 
@@ -375,7 +479,7 @@ const handleTeamChange = async (e) => {
       required
     >
       <option value="">Select ticket</option>
-      {tickets.map((ticket) => (
+      {assignmentTickets.map((ticket) => (
         <option key={ticket.id} value={ticket.id}>
           {ticket.ticket_number} — {ticket.title}
         </option>
@@ -431,9 +535,11 @@ const handleTeamChange = async (e) => {
 </div>
    
 <div className="mb-5">
-  <h2 className="text-xl font-semibold">
-    Recent Tickets
-  </h2>
+  {searching && (
+  <p className="mt-2 text-sm text-blue-600">
+    Searching tickets...
+  </p>
+)}
 
   <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
     {/* Search */}
@@ -500,8 +606,24 @@ const handleTeamChange = async (e) => {
         ) : error ? (
           <p className="text-red-600">{error}</p>
         ) : tickets.length === 0 ? (
-          <p className="text-slate-500">No tickets found.</p>
-        ) : (
+  <div className="py-10 text-center">
+    <p className="font-medium text-slate-700">
+      {debouncedSearch ||
+      statusFilter !== "ALL" ||
+      priorityFilter !== "ALL"
+        ? "No tickets match your search or filters."
+        : "No tickets have been created yet."}
+    </p>
+
+    <p className="mt-2 text-sm text-slate-500">
+      {debouncedSearch ||
+      statusFilter !== "ALL" ||
+      priorityFilter !== "ALL"
+        ? "Try changing your search or clearing the filters."
+        : "New tickets will appear here once employees submit them."}
+    </p>
+  </div>
+) : (
           <>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
