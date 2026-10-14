@@ -5,6 +5,9 @@ import {
   Ticket,
   LogOut,
   Headphones,
+  Users,
+  Users2,
+  Tag,
 } from "lucide-react";
 
 export default function Layout() {
@@ -46,28 +49,75 @@ export default function Layout() {
           <h2 className="text-xl font-bold">IT Support</h2>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-1.5">
           <NavLink
             to={dashboardPath}
+            end
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-xl transition ${
                 isActive
-                  ? "bg-blue-600 text-white"
+                  ? "bg-blue-600 text-white font-semibold"
                   : "text-slate-300 hover:bg-slate-800"
               }`
             }
           >
             <LayoutDashboard size={20} />
-            Dashboard
+            {roleId === 3
+              ? "Tickets Hub"
+              : roleId === 2
+              ? "Assigned Queue"
+              : "My Tickets"}
           </NavLink>
 
-          <NavLink
-            to={dashboardPath}
-            className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-800 transition"
-          >
-            <Ticket size={20} />
-            Tickets Queue
-          </NavLink>
+          {roleId === 3 && (
+            <>
+              <div className="pt-4 pb-1 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Administration
+              </div>
+
+              <NavLink
+                to="/admin/users"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+                    isActive
+                      ? "bg-rose-600 text-white font-semibold"
+                      : "text-slate-300 hover:bg-slate-800"
+                  }`
+                }
+              >
+                <Users size={20} />
+                User Directory
+              </NavLink>
+
+              <NavLink
+                to="/admin/teams"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+                    isActive
+                      ? "bg-purple-600 text-white font-semibold"
+                      : "text-slate-300 hover:bg-slate-800"
+                  }`
+                }
+              >
+                <Users2 size={20} />
+                Support Teams
+              </NavLink>
+
+              <NavLink
+                to="/admin/categories"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+                    isActive
+                      ? "bg-emerald-600 text-white font-semibold"
+                      : "text-slate-300 hover:bg-slate-800"
+                  }`
+                }
+              >
+                <Tag size={20} />
+                Ticket Categories
+              </NavLink>
+            </>
+          )}
         </nav>
 
         <div className="p-4 border-t border-slate-700">
