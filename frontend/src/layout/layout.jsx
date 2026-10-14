@@ -37,7 +37,7 @@ export default function Layout() {
 
     // Your backend uses stateless JWTs, so removing the
     // local token signs the user out of this browser.
-    navigate("/login", { replace: true });
+    navigate("/", { replace: true });
   };
 
   return (
