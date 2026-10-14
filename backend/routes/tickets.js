@@ -16,7 +16,7 @@ router.get("/", isLoggedIn, getTickets);
 
 // Ticket assignment and status
 router.patch("/:id/assign", isLoggedIn, isAdmin, assignTicket);
-router.patch("/:id/status", isLoggedIn, isAdmin, updateTicketStatus);
+router.patch("/:id/status", isLoggedIn, updateTicketStatus);
 
 // Ticket comments
 router.post("/:id/comments", isLoggedIn, addTicketComment);

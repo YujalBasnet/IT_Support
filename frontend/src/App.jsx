@@ -70,9 +70,21 @@ import TicketDetails from "./pages/TicketDetails.jsx";
             path: "/admin",
             element: <AdminDashboard />,
           },
+        ],
+      },
+    ],
+  },
+
+  // Shared ticket details route (Employee, Agent, Admin)
+  {
+    element: <ProtectedRoute allowedRoles={[1, 2, 3]} />,
+    children: [
+      {
+        element: <Layout />,
+        children: [
           {
             path: "/tickets/:id",
-            element: <TicketDetails/>,
+            element: <TicketDetails />,
           },
         ],
       },
