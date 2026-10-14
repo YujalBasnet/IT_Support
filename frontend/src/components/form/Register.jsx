@@ -88,340 +88,106 @@ export default function Register() {
   };
 
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    <div className="auth-page register-theme">
+      <div className="auth-bg-orb auth-bg-orb-1" />
+      <div className="auth-bg-orb auth-bg-orb-2" />
 
-        .auth-page {
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 24px 16px;
-          background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
-          font-family: 'Inter', sans-serif;
-          position: relative;
-          overflow: hidden;
-        }
-        .auth-bg-orb {
-          position: absolute;
-          border-radius: 50%;
-          filter: blur(80px);
-          pointer-events: none;
-        }
-        .auth-bg-orb-1 {
-          width: 400px; height: 400px;
-          background: radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%);
-          top: -100px; right: -80px;
-        }
-        .auth-bg-orb-2 {
-          width: 350px; height: 350px;
-          background: radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%);
-          bottom: -80px; left: -80px;
-        }
-        .auth-card {
-          position: relative;
-          z-index: 10;
-          width: 100%;
-          max-width: 430px;
-          background: rgba(255,255,255,0.05);
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
-          border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 24px;
-          padding: 36px 32px;
-          box-shadow: 0 32px 64px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
-        }
-        .auth-brand {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          margin-bottom: 28px;
-          gap: 12px;
-        }
-        .auth-brand-icon {
-          width: 56px; height: 56px;
-          background: linear-gradient(135deg, #8b5cf6, #6366f1);
-          border-radius: 16px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 8px 24px rgba(139,92,246,0.4);
-        }
-        .auth-brand-title {
-          font-size: 22px;
-          font-weight: 800;
-          color: #f8fafc;
-          letter-spacing: -0.5px;
-          margin: 0;
-          text-align: center;
-        }
-        .auth-brand-sub {
-          font-size: 13px;
-          color: #94a3b8;
-          margin: 0;
-          text-align: center;
-        }
-        .auth-google-btn {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          padding: 12px;
-          border: 1px solid rgba(255,255,255,0.14);
-          border-radius: 12px;
-          background: rgba(255,255,255,0.07);
-          color: #e2e8f0;
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          font-family: 'Inter', sans-serif;
-          margin-bottom: 20px;
-        }
-        .auth-google-btn:hover {
-          background: rgba(255,255,255,0.12);
-          border-color: rgba(255,255,255,0.22);
-          transform: translateY(-1px);
-        }
-        .auth-divider {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          margin-bottom: 20px;
-          color: #475569;
-          font-size: 12px;
-          font-weight: 500;
-        }
-        .auth-divider::before, .auth-divider::after {
-          content: '';
-          flex: 1;
-          height: 1px;
-          background: rgba(255,255,255,0.08);
-        }
-        .auth-form-title {
-          font-size: 16px;
-          font-weight: 700;
-          color: #e2e8f0;
-          margin: 0 0 18px 0;
-        }
-        .auth-form { display: flex; flex-direction: column; gap: 14px; }
-        .auth-field { display: flex; flex-direction: column; gap: 6px; }
-        .auth-label {
-          font-size: 12.5px;
-          font-weight: 600;
-          color: #94a3b8;
-          letter-spacing: 0.02em;
-        }
-        .auth-input-wrap {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-        .auth-input-icon {
-          position: absolute;
-          left: 13px;
-          color: #475569;
-          pointer-events: none;
-        }
-        .auth-input {
-          width: 100%;
-          padding: 11px 40px 11px 36px;
-          background: rgba(255,255,255,0.06);
-          border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 10px;
-          color: #f1f5f9;
-          font-size: 14px;
-          font-family: 'Inter', sans-serif;
-          outline: none;
-          transition: all 0.2s;
-          box-sizing: border-box;
-        }
-        .auth-input::placeholder { color: #475569; }
-        .auth-input:focus {
-          border-color: #8b5cf6;
-          background: rgba(255,255,255,0.09);
-          box-shadow: 0 0 0 3px rgba(139,92,246,0.15);
-        }
-        .auth-eye-btn {
-          position: absolute;
-          right: 12px;
-          background: none;
-          border: none;
-          color: #475569;
-          cursor: pointer;
-          padding: 2px;
-          display: flex;
-          align-items: center;
-          transition: color 0.2s;
-        }
-        .auth-eye-btn:hover { color: #94a3b8; }
-        .auth-submit-btn {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 12px;
-          background: linear-gradient(135deg, #8b5cf6, #6366f1);
-          color: #fff;
-          border: none;
-          border-radius: 12px;
-          font-size: 14.5px;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          font-family: 'Inter', sans-serif;
-          margin-top: 4px;
-          box-shadow: 0 4px 16px rgba(139,92,246,0.35);
-        }
-        .auth-submit-btn:hover:not(:disabled) {
-          transform: translateY(-1px);
-          box-shadow: 0 6px 20px rgba(139,92,246,0.45);
-        }
-        .auth-submit-btn:disabled { opacity: 0.65; cursor: not-allowed; }
-        .auth-error {
-          padding: 10px 14px;
-          background: rgba(239,68,68,0.12);
-          border: 1px solid rgba(239,68,68,0.3);
-          border-radius: 10px;
-          color: #fca5a5;
-          font-size: 13px;
-          font-weight: 500;
-        }
-        .auth-switch {
-          text-align: center;
-          font-size: 13px;
-          color: #64748b;
-          margin-top: 20px;
-        }
-        .auth-switch a {
-          color: #a78bfa;
-          font-weight: 600;
-          text-decoration: none;
-          transition: color 0.2s;
-        }
-        .auth-switch a:hover { color: #c4b5fd; text-decoration: underline; }
-        .auth-footer {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          margin-top: 24px;
-          color: #334155;
-          font-size: 12px;
-        }
-        .auth-hint {
-          font-size: 11.5px;
-          color: #475569;
-          margin-top: -4px;
-          padding-left: 2px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .spin { animation: spin 0.8s linear infinite; }
-      `}</style>
-
-      <div className="auth-page">
-        <div className="auth-bg-orb auth-bg-orb-1" />
-        <div className="auth-bg-orb auth-bg-orb-2" />
-
-        <div className="auth-card">
-          {/* Brand */}
-          <div className="auth-brand">
-            <div className="auth-brand-icon">
-              <TicketCheck color="#fff" size={28} />
-            </div>
-            <div>
-              <h1 className="auth-brand-title">Create Your Account</h1>
-              <p className="auth-brand-sub">Join the IT Support System as an Employee</p>
-            </div>
+      <div className="auth-card">
+        {/* Brand */}
+        <div className="auth-brand">
+          <div className="auth-brand-icon">
+            <TicketCheck color="#fff" size={28} />
           </div>
-
-          {/* Google */}
-          <button className="auth-google-btn" onClick={handleGoogleLogin} id="google-register-btn">
-            <GoogleIcon />
-            Sign up with Google
-          </button>
-
-          <div className="auth-divider">or register with email</div>
-
-          <h2 className="auth-form-title">Account Details</h2>
-
-          {/* Register Form */}
-          <form onSubmit={handleSubmit} className="auth-form" noValidate>
-            {error && <div className="auth-error">{error}</div>}
-
-            {/* Full Name */}
-            <div className="auth-field">
-              <label htmlFor="reg-name" className="auth-label">Full Name</label>
-              <div className="auth-input-wrap">
-                <User size={16} className="auth-input-icon" />
-                <input
-                  id="reg-name"
-                  type="text"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="John Doe"
-                  className="auth-input"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Email */}
-            <div className="auth-field">
-              <label htmlFor="reg-email" className="auth-label">Email Address</label>
-              <div className="auth-input-wrap">
-                <Mail size={16} className="auth-input-icon" />
-                <input
-                  id="reg-email"
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="you@company.com"
-                  className="auth-input"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <PasswordField
-              id="reg-password"
-              label="Password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="Min. 6 characters"
-            />
-            <p className="auth-hint">Must be at least 6 characters long.</p>
-
-            {/* Confirm Password */}
-            <PasswordField
-              id="reg-confirm"
-              label="Confirm Password"
-              value={confirm}
-              onChange={e => setConfirm(e.target.value)}
-              placeholder="Repeat your password"
-            />
-
-            <button type="submit" className="auth-submit-btn" disabled={loading}>
-              {loading ? <Loader2 size={18} className="spin" /> : <ArrowRight size={18} />}
-              {loading ? "Creating account…" : "Create Account"}
-            </button>
-          </form>
-
-          {/* Switch to Login */}
-          <p className="auth-switch">
-            Already have an account?{" "}
-            <Link to="/login">Sign in instead</Link>
-          </p>
-
-          <div className="auth-footer">
-            <ShieldCheck size={13} />
-            Secured with JWT · IT Support {new Date().getFullYear()}
+          <div>
+            <h1 className="auth-brand-title">Create Your Account</h1>
+            <p className="auth-brand-sub">Join the IT Support System as an Employee</p>
           </div>
         </div>
+
+        {/* Google */}
+        <button className="auth-google-btn" onClick={handleGoogleLogin} id="google-register-btn">
+          <GoogleIcon />
+          Sign up with Google
+        </button>
+
+        <div className="auth-divider">or register with email</div>
+
+        <h2 className="auth-form-title">Account Details</h2>
+
+        {/* Register Form */}
+        <form onSubmit={handleSubmit} className="auth-form" noValidate>
+          {error && <div className="auth-error">{error}</div>}
+
+          {/* Full Name */}
+          <div className="auth-field">
+            <label htmlFor="reg-name" className="auth-label">Full Name</label>
+            <div className="auth-input-wrap">
+              <User size={16} className="auth-input-icon" />
+              <input
+                id="reg-name"
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="John Doe"
+                className="auth-input"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Email */}
+          <div className="auth-field">
+            <label htmlFor="reg-email" className="auth-label">Email Address</label>
+            <div className="auth-input-wrap">
+              <Mail size={16} className="auth-input-icon" />
+              <input
+                id="reg-email"
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="you@company.com"
+                className="auth-input"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Password */}
+          <PasswordField
+            id="reg-password"
+            label="Password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="Min. 6 characters"
+          />
+          <p className="auth-hint">Must be at least 6 characters long.</p>
+
+          {/* Confirm Password */}
+          <PasswordField
+            id="reg-confirm"
+            label="Confirm Password"
+            value={confirm}
+            onChange={e => setConfirm(e.target.value)}
+            placeholder="Repeat your password"
+          />
+
+          <button type="submit" className="auth-submit-btn" disabled={loading}>
+            {loading ? <Loader2 size={18} className="spin" /> : <ArrowRight size={18} />}
+            {loading ? "Creating account…" : "Create Account"}
+          </button>
+        </form>
+
+        {/* Switch to Login */}
+        <p className="auth-switch">
+          Already have an account?{" "}
+          <Link to="/login">Sign in instead</Link>
+        </p>
+
+        <div className="auth-footer">
+          <ShieldCheck size={13} />
+          Secured with JWT · IT Support {new Date().getFullYear()}
+        </div>
       </div>
-    </>
+    </div>
   );
 }
