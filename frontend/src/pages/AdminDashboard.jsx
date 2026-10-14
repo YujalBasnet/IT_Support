@@ -35,6 +35,16 @@ const [assignmentSearch, setAssignmentSearch] = useState("");
 const [debouncedAssignmentSearch, setDebouncedAssignmentSearch] = useState("");
 const [assignmentLoading, setAssignmentLoading] = useState(false);
 
+const [assignmentPage, setAssignmentPage] = useState(1);
+
+const [assignmentPagination, setAssignmentPagination] = useState({
+  page: 1,
+  limit: 10,
+  total: 0,
+  totalPages: 0,
+});
+
+
 const [selectedTicket, setSelectedTicket] = useState(null);
 const [selectedTeam, setSelectedTeam] = useState("");
 const [teamMembers, setTeamMembers] = useState([]);
@@ -205,13 +215,16 @@ useEffect(() => {
   fetchTeams();
 }, []);
 
+
 useEffect(() => {
   const timer = setTimeout(() => {
+    setAssignmentPage(1);
     setDebouncedAssignmentSearch(assignmentSearch.trim());
   }, 500);
 
   return () => clearTimeout(timer);
 }, [assignmentSearch]);
+
 
 useEffect(() => {
   const controller = new AbortController();
