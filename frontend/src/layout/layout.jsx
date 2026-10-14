@@ -61,11 +61,13 @@ export default function Layout() {
             Dashboard
           </NavLink>
 
-          <div className="flex items-center gap-3 px-4 py-3 text-slate-500">
+          <NavLink
+            to={dashboardPath}
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-800 transition"
+          >
             <Ticket size={20} />
-            Tickets
-            <span className="text-xs ml-auto">Soon</span>
-          </div>
+            Tickets Queue
+          </NavLink>
         </nav>
 
         <div className="p-4 border-t border-slate-700">
