@@ -4,6 +4,7 @@ import EmployeeDashboard from "./pages/EmployeeDashboard.jsx";
 import AgentDashboard from "./pages/AgentDashboard.jsx";
 import AdminDashboard from "./pages/AdminDashboard.jsx";
 import Login from "./components/form/Login.jsx";
+import Register from "./components/form/Register.jsx";
 import Layout from "./layout/layout.jsx";
 import AuthCallback from "./pages/AuthCallback.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
@@ -21,6 +22,10 @@ import LandingPage from "./pages/LandingPage.jsx";
   {
     path: "/login",
     element: <Login />,
+  },
+  {
+    path: "/register",
+    element: <Register />,
   },
   {
     path: "/auth/callback",
