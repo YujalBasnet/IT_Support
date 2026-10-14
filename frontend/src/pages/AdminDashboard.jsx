@@ -211,7 +211,6 @@ useEffect(() => {
 
 useEffect(() => {
   const timer = setTimeout(() => {
-    setAssignmentPage(1);
     setDebouncedAssignmentSearch(assignmentSearch.trim());
   }, 500);
 
