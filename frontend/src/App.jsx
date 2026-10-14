@@ -8,6 +8,9 @@ import Layout from "./layout/layout.jsx";
 import AuthCallback from "./pages/AuthCallback.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import TicketDetails from "./pages/TicketDetails.jsx";
+import AdminUsers from "./pages/AdminUsers.jsx";
+import AdminTeams from "./pages/AdminTeams.jsx";
+import AdminCategories from "./pages/AdminCategories.jsx";
 
 
 
@@ -69,6 +72,18 @@ import TicketDetails from "./pages/TicketDetails.jsx";
           {
             path: "/admin",
             element: <AdminDashboard />,
+          },
+          {
+            path: "/admin/users",
+            element: <AdminUsers />,
+          },
+          {
+            path: "/admin/teams",
+            element: <AdminTeams />,
+          },
+          {
+            path: "/admin/categories",
+            element: <AdminCategories />,
           },
         ],
       },
