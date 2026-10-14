@@ -1,5 +1,6 @@
 import { OAuth2Client } from "google-auth-library";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 import database from "../database/database.js";
 import {
   createLoginCode,
@@ -208,4 +209,131 @@ export const exchangeLoginCode = (req, res) => {
     message: "Login successful",
     ...loginData,
   });
+};
+
+// ─── Email / Password Register ───────────────────────────────────────────────
+export const emailRegister = async (req, res) => {
+  try {
+    const { name, email, password } = req.body ?? {};
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Name, email and password are required" });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    // Check if email already exists
+    const [existing] = await database
+      .promise()
+      .query("SELECT id FROM users WHERE email = ?", [email]);
+
+    if (existing.length > 0) {
+      return res.status(409).json({ message: "An account with this email already exists" });
+    }
+
+    // Get EMPLOYEE role
+    const [roles] = await database
+      .promise()
+      .query("SELECT id FROM roles WHERE name = 'EMPLOYEE'");
+
+    if (roles.length === 0) {
+      return res.status(500).json({ message: "EMPLOYEE role not found" });
+    }
+
+    const employeeRoleId = roles[0].id;
+    const password_hash = await bcrypt.hash(password, 12);
+
+    const [result] = await database
+      .promise()
+      .query(
+        `INSERT INTO users (name, email, password_hash, role_id, account_status)
+         VALUES (?, ?, ?, ?, 'ACTIVE')`,
+        [name.trim(), email.toLowerCase().trim(), password_hash, employeeRoleId]
+      );
+
+    const user = {
+      id: result.insertId,
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      profile_image: null,
+      role_id: employeeRoleId,
+    };
+
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, roleId: user.role_id },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    return res.status(201).json({
+      message: "Account created successfully",
+      token,
+      user,
+    });
+  } catch (error) {
+    console.error("Email register error:", error);
+    res.status(500).json({ message: "Registration failed" });
+  }
+};
+
+// ─── Email / Password Login ───────────────────────────────────────────────────
+export const emailLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body ?? {};
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    const [users] = await database
+      .promise()
+      .query(
+        "SELECT id, name, email, profile_image, role_id, account_status, password_hash FROM users WHERE email = ?",
+        [email.toLowerCase().trim()]
+      );
+
+    if (users.length === 0) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    const user = users[0];
+
+    if (user.account_status !== "ACTIVE") {
+      return res.status(403).json({ message: "Your account is inactive. Contact your administrator." });
+    }
+
+    if (!user.password_hash) {
+      return res.status(401).json({
+        message: "This account uses Google Sign-In. Please continue with Google.",
+      });
+    }
+
+    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    if (!passwordMatch) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, roleId: user.role_id },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    return res.status(200).json({
+      message: "Login successful",
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        profile_image: user.profile_image,
+        role_id: user.role_id,
+      },
+    });
+  } catch (error) {
+    console.error("Email login error:", error);
+    res.status(500).json({ message: "Login failed" });
+  }
 };
