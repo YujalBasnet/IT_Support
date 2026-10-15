@@ -250,4 +250,4 @@ No license has been specified for this repository yet.
 
 ## Author
 
-Developed by [YujalBasnet](https://github.com/YujalBasnet).
+Developed by [YujalBasnet](https://github.com/YujalBasnet) & [YogeshPhuyal](https://github.com/yogeshphuyal85-dev)
