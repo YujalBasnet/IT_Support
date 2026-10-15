@@ -12,6 +12,21 @@ router.post("/", isLoggedIn, createTicket);
 router.get("/stats", isLoggedIn, isAdmin, getTicketStats);
 
 // Ticket list
+
+/**
+ * @swagger
+ * /tickets:
+ *   get:
+ *     summary: Get all accessible tickets
+ *     tags: [Tickets]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Tickets retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ */
 router.get("/", isLoggedIn, getTickets);
 
 // Ticket assignment and status
