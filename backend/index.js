@@ -10,11 +10,14 @@ import teamRoutes from "./routes/team.js";
 import attachmentRoutes from "./routes/attachmentRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import swaggerUi from "swagger-ui-express";
+import swaggerSpec from "./config/swagger.js";
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // API routes
 app.use("/auth", authRoutes);
