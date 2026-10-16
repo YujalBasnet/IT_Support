@@ -253,4 +253,4 @@ No license has been specified for this repository yet.
 Developed by [YujalBasnet](https://github.com/YujalBasnet) & [YogeshPhuyal](https://github.com/yogeshphuyal85-dev)
 
 
-![IT Support CI](https://github.com/YujalBasnet/IT_Support/actions/workflows/webpack.yml/badge.svg)
+
