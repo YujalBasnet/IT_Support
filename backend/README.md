@@ -55,6 +55,21 @@ cd backend
 npm install
 ```
 
+## Database Setup
+
+Initialize the MySQL database and seed standard data (roles, categories, support teams, and test accounts):
+
+```bash
+npm run db:init
+```
+
+Alternatively, you can manually execute the SQL files in your MySQL client:
+
+1. [schema.sql](file:///d:/IT_Support/backend/database/schema.sql) — Creates the database and all 10 relational tables.
+2. [seed.sql](file:///d:/IT_Support/backend/database/seed.sql) — Seeds standard roles, categories, teams, and test users.
+
+For complete entity-relationship documentation and architecture details, see [ER_DIAGRAM.md](file:///d:/IT_Support/backend/database/ER_DIAGRAM.md).
+
 ## Environment Variables
 
 Create a `.env` file inside the `backend` directory. Configure it with the values required by your local database, authentication, and email setup.
