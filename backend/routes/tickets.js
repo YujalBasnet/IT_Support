@@ -1,6 +1,14 @@
 import express from "express";
-
-import { createTicket, getTickets, getTicketById, assignTicket, updateTicketStatus, getTicketHistory, getTicketStats} from "../controllers/ticketController.js";
+import {
+  createTicket,
+  getTickets,
+  getTicketById,
+  assignTicket,
+  updateTicketStatus,
+  updateTicket,
+  getTicketHistory,
+  getTicketStats,
+} from "../controllers/ticketController.js";
 import { isAdmin, isLoggedIn } from "../middleware/authMiddleware.js";
 import { addTicketComment, getTicketComments } from "../controllers/ticketCommentsController.js";
 
@@ -12,26 +20,14 @@ router.post("/", isLoggedIn, createTicket);
 router.get("/stats", isLoggedIn, isAdmin, getTicketStats);
 
 // Ticket list
-
-/**
- * @swagger
- * /tickets:
- *   get:
- *     summary: Get all accessible tickets
- *     tags: [Tickets]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Tickets retrieved successfully
- *       401:
- *         description: Unauthorized
- */
 router.get("/", isLoggedIn, getTickets);
 
 // Ticket assignment and status
 router.patch("/:id/assign", isLoggedIn, isAdmin, assignTicket);
 router.patch("/:id/status", isLoggedIn, updateTicketStatus);
+
+// Update ticket info / priority (Admins & Support Agents)
+router.patch("/:id", isLoggedIn, updateTicket);
 
 // Ticket comments
 router.post("/:id/comments", isLoggedIn, addTicketComment);
