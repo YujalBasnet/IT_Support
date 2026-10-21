@@ -12,6 +12,7 @@ import TicketDetails from "./pages/TicketDetails.jsx";
 import AdminUsers from "./pages/AdminUsers.jsx";
 import AdminTeams from "./pages/AdminTeams.jsx";
 import AdminCategories from "./pages/AdminCategories.jsx";
+import AdminAuditLogs from "./pages/AdminAuditLogs.jsx";
 import LandingPage from "./components/global/LandingPage.jsx";
 
   const router = createBrowserRouter([
@@ -86,6 +87,10 @@ import LandingPage from "./components/global/LandingPage.jsx";
           {
             path: "/admin/categories",
             element: <AdminCategories />,
+          },
+          {
+            path: "/admin/audit-logs",
+            element: <AdminAuditLogs />,
           },
         ],
       },
