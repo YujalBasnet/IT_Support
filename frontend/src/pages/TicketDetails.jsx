@@ -142,7 +142,11 @@ export default function TicketDetails() {
     REOPENED: ["ASSIGNED", "IN_PROGRESS", "CLOSED"],
   };
 
-  const nextStatuses = (ticket && allowedTransitionsMap[ticket.status]) || [];
+  let nextStatuses = (ticket && allowedTransitionsMap[ticket.status]) || [];
+  // Business rule: Employees can only close or reopen eligible tickets
+  if (currentRoleId === 1) {
+    nextStatuses = nextStatuses.filter((s) => ["REOPENED", "CLOSED"].includes(s));
+  }
 
   // Handle Status Update
   const handleStatusChange = async (newStatus) => {
@@ -697,9 +701,21 @@ export default function TicketDetails() {
                         key={nxt}
                         disabled={updatingStatus}
                         onClick={() => handleStatusChange(nxt)}
-                        className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition cursor-pointer disabled:opacity-50"
+                        className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold border transition cursor-pointer disabled:opacity-50 ${
+                          nxt === "RESOLVED"
+                            ? "bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                            : nxt === "REOPENED"
+                            ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                            : nxt === "CLOSED"
+                            ? "bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200"
+                            : "bg-slate-50 border-slate-200 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700"
+                        }`}
                       >
-                        Change to {nxt.replace(/_/g, " ")}
+                        {nxt === "REOPENED"
+                          ? "Reopen Ticket"
+                          : nxt === "CLOSED"
+                          ? "Close Ticket"
+                          : `Change to ${nxt.replace(/_/g, " ")}`}
                       </button>
                     ))}
                   </div>

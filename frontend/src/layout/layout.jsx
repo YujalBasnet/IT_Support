@@ -8,6 +8,7 @@ import {
   Users,
   Users2,
   Tag,
+  Shield,
 } from "lucide-react";
 
 export default function Layout() {
@@ -115,6 +116,20 @@ export default function Layout() {
               >
                 <Tag size={20} />
                 Ticket Categories
+              </NavLink>
+
+              <NavLink
+                to="/admin/audit-logs"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+                    isActive
+                      ? "bg-indigo-600 text-white font-semibold"
+                      : "text-slate-300 hover:bg-slate-800"
+                  }`
+                }
+              >
+                <Shield size={20} />
+                Audit Logs
               </NavLink>
             </>
           )}

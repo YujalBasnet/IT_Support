@@ -13,7 +13,7 @@ export const canAccessTicket = async (req, res, next) => {
     }
 
     const [tickets] = await database.promise().query(
-      `SELECT id, requester_id, assigned_agent_id
+      `SELECT id, requester_id, assigned_agent_id, team_id
        FROM tickets
        WHERE id = ?`,
       [ticketId]
@@ -40,12 +40,21 @@ export const canAccessTicket = async (req, res, next) => {
       return next();
     }
 
-    // Agents can access tickets assigned to them.
-    if (
-      roleId === 2 &&
-      Number(ticket.assigned_agent_id) === Number(userId)
-    ) {
-      return next();
+    // Agents can access tickets assigned to them or their team.
+    if (roleId === 2) {
+      if (Number(ticket.assigned_agent_id) === Number(userId)) {
+        return next();
+      }
+
+      if (ticket.team_id) {
+        const [members] = await database.promise().query(
+          "SELECT 1 FROM team_members WHERE team_id = ? AND user_id = ?",
+          [ticket.team_id, userId]
+        );
+        if (members.length > 0) {
+          return next();
+        }
+      }
     }
 
     return res.status(403).json({
