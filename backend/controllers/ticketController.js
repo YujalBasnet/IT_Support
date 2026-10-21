@@ -1,5 +1,6 @@
 import database from "../database/database.js";
 import { sendEmail } from "../services/emailService.js";
+import { createAuditLog } from "../services/auditLogService.js";
 
 export const createTicket = (req, res) => {
   const { title, description, category_id, priority = "MEDIUM" } = req.body;
@@ -68,8 +69,10 @@ export const createTicket = (req, res) => {
       });
     }
 
-    // Generate ticket number
-    const ticketNumber = `TKT-${Date.now()}`;
+    // Generate ticket number format matching document (e.g. IIC-2026-001284)
+    const currentYear = new Date().getFullYear();
+    const randomSuffix = String(Math.floor(100000 + Math.random() * 900000));
+    const ticketNumber = `IIC-${currentYear}-${randomSuffix}`;
 
     const insertQuery = `
         INSERT INTO tickets
@@ -252,8 +255,11 @@ export const getTickets = (req, res) => {
     conditions.push("requester_id = ?");
     values.push(userId);
   } else if (roleId === 2) {
-    conditions.push("assigned_agent_id = ?");
-    values.push(userId);
+    conditions.push(`(
+      assigned_agent_id = ?
+      OR team_id IN (SELECT team_id FROM team_members WHERE user_id = ?)
+    )`);
+    values.push(userId, userId);
   } else if (roleId !== 3) {
     return res.status(403).json({
       message: "Access denied",
@@ -380,11 +386,31 @@ export const getTicketById = (req, res) => {
       });
     }
 
-    // Support agent can only view tickets assigned to them
+    // Support agent can view tickets assigned to them or to their team
     if (req.user.roleId === 2 && ticket.assigned_agent_id !== req.user.userId) {
-      return res.status(403).json({
-        message: "You are not allowed to view this ticket",
-      });
+      if (!ticket.team_id) {
+        return res.status(403).json({
+          message: "You are not allowed to view this ticket",
+        });
+      }
+
+      database.query(
+        "SELECT 1 FROM team_members WHERE team_id = ? AND user_id = ?",
+        [ticket.team_id, req.user.userId],
+        (teamErr, memberRows) => {
+          if (teamErr || memberRows.length === 0) {
+            return res.status(403).json({
+              message: "You are not allowed to view this ticket",
+            });
+          }
+
+          return res.status(200).json({
+            message: "Ticket retrieved successfully",
+            ticket,
+          });
+        }
+      );
+      return;
     }
 
     // Admin can view any ticket
@@ -525,6 +551,18 @@ export const assignTicket = async (req, res) => {
     await db.commit();
     committed = true;
 
+    // Record administrative audit log
+    await createAuditLog({
+      userId,
+      action: "TICKET_ASSIGNED",
+      resourceType: "TICKET",
+      resourceId: ticketId,
+      changes: {
+        previous: JSON.parse(previousAssignment),
+        new: JSON.parse(newAssignment),
+      },
+    });
+
   } catch (error) {
     console.error("Ticket assignment failed:", error);
 
@@ -661,11 +699,20 @@ export const updateTicketStatus = (req, res) => {
 
         const ticket = results[0];
 
-        // Check access before revealing transition rules.
-        if (roleId === 1 && Number(ticket.requester_id) !== userId) {
-          return rollbackWithResponse(403, {
-            message: "You are not allowed to update this ticket",
-          });
+        // Check access and business rules before revealing transition rules.
+        if (roleId === 1) {
+          if (Number(ticket.requester_id) !== userId) {
+            return rollbackWithResponse(403, {
+              message: "You are not allowed to update this ticket",
+            });
+          }
+
+          // Enforce business rule: Employees can only reopen or close eligible tickets
+          if (!["REOPENED", "CLOSED"].includes(status)) {
+            return rollbackWithResponse(403, {
+              message: "Employees are only permitted to reopen or close resolved tickets",
+            });
+          }
         }
 
         if (roleId === 2 && Number(ticket.assigned_agent_id) !== userId) {
@@ -907,11 +954,28 @@ export const getTicketHistory = (req, res) => {
       });
     }
 
-    // Support agents can view history for tickets assigned to them.
+    // Support agents can view history for tickets assigned to them or their team
     if (roleId === 2 && Number(ticket.assigned_agent_id) !== userId) {
-      return res.status(403).json({
-        message: "You can only view history for tickets assigned to you",
-      });
+      if (!ticket.team_id) {
+        return res.status(403).json({
+          message: "You can only view history for tickets assigned to you or your team",
+        });
+      }
+
+      database.query(
+        "SELECT 1 FROM team_members WHERE team_id = ? AND user_id = ?",
+        [ticket.team_id, userId],
+        (teamErr, memberRows) => {
+          if (teamErr || memberRows.length === 0) {
+            return res.status(403).json({
+              message: "You can only view history for tickets assigned to you or your team",
+            });
+          }
+
+          loadHistory();
+        }
+      );
+      return;
     }
 
     if (![1, 2, 3].includes(roleId)) {
@@ -920,36 +984,40 @@ export const getTicketHistory = (req, res) => {
       });
     }
 
-    // Retrieve the ticket's audit trail.
-    const historyQuery = `
-      SELECT
-        th.id,
-        th.ticket_id,
-        th.user_id,
-        u.name AS user_name,
-        th.action,
-        th.previous_value,
-        th.new_value,
-        th.created_at
-      FROM ticket_history th
-      LEFT JOIN users u ON th.user_id = u.id
-      WHERE th.ticket_id = ?
-      ORDER BY th.created_at DESC, th.id DESC
-    `;
+    loadHistory();
 
-    database.query(historyQuery, [ticketId], (historyError, history) => {
-      if (historyError) {
-        console.error("Error retrieving ticket history:", historyError);
-        return res.status(500).json({
-          message: "Failed to retrieve ticket history",
+    function loadHistory() {
+      // Retrieve the ticket's audit trail.
+      const historyQuery = `
+        SELECT
+          th.id,
+          th.ticket_id,
+          th.user_id,
+          u.name AS user_name,
+          th.action,
+          th.previous_value,
+          th.new_value,
+          th.created_at
+        FROM ticket_history th
+        LEFT JOIN users u ON th.user_id = u.id
+        WHERE th.ticket_id = ?
+        ORDER BY th.created_at DESC, th.id DESC
+      `;
+
+      database.query(historyQuery, [ticketId], (historyError, history) => {
+        if (historyError) {
+          console.error("Error retrieving ticket history:", historyError);
+          return res.status(500).json({
+            message: "Failed to retrieve ticket history",
+          });
+        }
+
+        return res.status(200).json({
+          ticketId,
+          history,
         });
-      }
-
-      return res.status(200).json({
-        ticketId,
-        history,
       });
-    });
+    }
   });
 };
 
@@ -979,5 +1047,170 @@ export const getTicketStats = async (req, res) => {
     return res.status(500).json({
       message: "Failed to retrieve ticket statistics",
     });
+  }
+};
+
+/**
+ * PATCH /api/tickets/:id
+ * Allows Admins to update ticket metadata (priority, category, title, description)
+ * Allows Support Agents to change ticket priority for assigned/team tickets
+ */
+export const updateTicket = async (req, res) => {
+  try {
+    const ticketId = Number(req.params.id);
+    const userId = Number(req.user.userId);
+    const roleId = Number(req.user.roleId);
+    const { priority, category_id, title, description } = req.body;
+
+    if (!Number.isInteger(ticketId) || ticketId <= 0) {
+      return res.status(400).json({ message: "Invalid ticket ID" });
+    }
+
+    if (![2, 3].includes(roleId)) {
+      return res.status(403).json({
+        message: "Only support staff and administrators are permitted to update tickets",
+      });
+    }
+
+    const [tickets] = await database.promise().query(
+      "SELECT * FROM tickets WHERE id = ?",
+      [ticketId]
+    );
+
+    if (tickets.length === 0) {
+      return res.status(404).json({ message: "Ticket not found" });
+    }
+
+    const ticket = tickets[0];
+
+    // If support agent, verify assignment or team membership
+    if (roleId === 2) {
+      const isAssigned = Number(ticket.assigned_agent_id) === userId;
+      let isTeamMember = false;
+      if (ticket.team_id) {
+        const [members] = await database.promise().query(
+          "SELECT 1 FROM team_members WHERE team_id = ? AND user_id = ?",
+          [ticket.team_id, userId]
+        );
+        isTeamMember = members.length > 0;
+      }
+
+      if (!isAssigned && !isTeamMember) {
+        return res.status(403).json({
+          message: "You can only update tickets assigned to you or your team",
+        });
+      }
+
+      // Support agents can only change priority
+      if (category_id !== undefined || title !== undefined || description !== undefined) {
+        return res.status(403).json({
+          message: "Support agents are only permitted to update ticket priority",
+        });
+      }
+    }
+
+    const updates = [];
+    const values = [];
+    const changes = {};
+
+    if (priority) {
+      const allowedPriorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+      if (!allowedPriorities.includes(priority)) {
+        return res.status(400).json({ message: "Invalid priority value" });
+      }
+      if (priority !== ticket.priority) {
+        updates.push("priority = ?");
+        values.push(priority);
+        changes.priority = { from: ticket.priority, to: priority };
+      }
+    }
+
+    if (roleId === 3 && category_id !== undefined) {
+      const catId = Number(category_id);
+      const [cats] = await database.promise().query(
+        "SELECT id, is_active FROM categories WHERE id = ?",
+        [catId]
+      );
+      if (cats.length === 0 || cats[0].is_active !== 1) {
+        return res.status(400).json({ message: "Valid active category is required" });
+      }
+      if (catId !== ticket.category_id) {
+        updates.push("category_id = ?");
+        values.push(catId);
+        changes.category_id = { from: ticket.category_id, to: catId };
+      }
+    }
+
+    if (roleId === 3 && title && typeof title === "string" && title.trim()) {
+      if (title.trim() !== ticket.title) {
+        updates.push("title = ?");
+        values.push(title.trim());
+        changes.title = { from: ticket.title, to: title.trim() };
+      }
+    }
+
+    if (roleId === 3 && description && typeof description === "string" && description.trim()) {
+      if (description.trim() !== ticket.description) {
+        updates.push("description = ?");
+        values.push(description.trim());
+        changes.description = { from: ticket.description, to: description.trim() };
+      }
+    }
+
+    if (updates.length === 0) {
+      return res.status(200).json({
+        message: "No changes detected",
+        ticket,
+      });
+    }
+
+    values.push(ticketId);
+    await database.promise().query(
+      `UPDATE tickets SET ${updates.join(", ")}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      values
+    );
+
+    // Record ticket history
+    const historyAction = changes.priority ? "PRIORITY_CHANGED" : "TICKET_UPDATED";
+    await database.promise().query(
+      `INSERT INTO ticket_history (ticket_id, user_id, action, previous_value, new_value)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        ticketId,
+        userId,
+        historyAction,
+        JSON.stringify(ticket),
+        JSON.stringify(changes),
+      ]
+    );
+
+    // If priority changed, notify requester via email
+    if (changes.priority) {
+      const [requesterRows] = await database.promise().query(
+        "SELECT email, name FROM users WHERE id = ?",
+        [ticket.requester_id]
+      );
+      if (requesterRows.length > 0 && requesterRows[0].email) {
+        sendEmail({
+          to: requesterRows[0].email,
+          subject: `Ticket Priority Updated: ${ticket.ticket_number}`,
+          text: `Hello ${requesterRows[0].name || "User"},
+
+The priority of your support ticket (${ticket.ticket_number}) has been changed from ${ticket.priority} to ${priority}.
+
+Regards,
+IT Support Team`,
+        }).catch((err) => console.error("Priority update email failed:", err.message));
+      }
+    }
+
+    return res.status(200).json({
+      message: "Ticket updated successfully",
+      ticketId,
+      changes,
+    });
+  } catch (error) {
+    console.error("Update ticket error:", error);
+    return res.status(500).json({ message: "Failed to update ticket" });
   }
 };

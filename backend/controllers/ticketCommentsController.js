@@ -56,12 +56,12 @@ export const addTicketComment = (req, res) => {
   }
 
   const ticketQuery = `
-    SELECT id, ticket_number, title, requester_id, assigned_agent_id
+    SELECT id, ticket_number, title, requester_id, assigned_agent_id, team_id
     FROM tickets
     WHERE id = ?
   `;
 
-  database.query(ticketQuery, [ticketId], (ticketError, tickets) => {
+  database.query(ticketQuery, [ticketId], async (ticketError, tickets) => {
     if (ticketError) {
       console.error("Error checking ticket:", ticketError);
       return res.status(500).json({
@@ -83,13 +83,25 @@ export const addTicketComment = (req, res) => {
       });
     }
 
-    if (
-      roleId === 2 &&
-      Number(ticket.assigned_agent_id) !== userId
-    ) {
-      return res.status(403).json({
-        message: "This ticket is not assigned to you",
-      });
+    if (roleId === 2 && Number(ticket.assigned_agent_id) !== userId) {
+      let isTeamMember = false;
+      if (ticket.team_id) {
+        try {
+          const [members] = await database.promise().query(
+            "SELECT 1 FROM team_members WHERE team_id = ? AND user_id = ?",
+            [ticket.team_id, userId]
+          );
+          isTeamMember = members.length > 0;
+        } catch (mErr) {
+          console.error("Error checking team membership:", mErr);
+        }
+      }
+
+      if (!isTeamMember) {
+        return res.status(403).json({
+          message: "This ticket is not assigned to you or your team",
+        });
+      }
     }
 
     const insertQuery = `
@@ -213,12 +225,12 @@ export const getTicketComments = (req, res) => {
   }
 
   const ticketQuery = `
-    SELECT id, requester_id, assigned_agent_id
+    SELECT id, requester_id, assigned_agent_id, team_id
     FROM tickets
     WHERE id = ?
   `;
 
-  database.query(ticketQuery, [ticketId], (ticketError, tickets) => {
+  database.query(ticketQuery, [ticketId], async (ticketError, tickets) => {
     if (ticketError) {
       console.error("Error checking ticket:", ticketError);
       return res.status(500).json({
@@ -244,14 +256,26 @@ export const getTicketComments = (req, res) => {
       });
     }
 
-    // Support agents can only view tickets assigned to them
-    if (
-      roleId === 2 &&
-      Number(ticket.assigned_agent_id) !== userId
-    ) {
-      return res.status(403).json({
-        message: "This ticket is not assigned to you",
-      });
+    // Support agents can view tickets assigned to them or their team
+    if (roleId === 2 && Number(ticket.assigned_agent_id) !== userId) {
+      let isTeamMember = false;
+      if (ticket.team_id) {
+        try {
+          const [members] = await database.promise().query(
+            "SELECT 1 FROM team_members WHERE team_id = ? AND user_id = ?",
+            [ticket.team_id, userId]
+          );
+          isTeamMember = members.length > 0;
+        } catch (mErr) {
+          console.error("Error checking team membership:", mErr);
+        }
+      }
+
+      if (!isTeamMember) {
+        return res.status(403).json({
+          message: "This ticket is not assigned to you or your team",
+        });
+      }
     }
 
     let commentsQuery = `

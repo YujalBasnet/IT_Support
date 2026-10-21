@@ -1,4 +1,5 @@
 import database from "../database/database.js";
+import { createAuditLog } from "../services/auditLogService.js";
 
 export const getTeams = async (req, res) => {
   try {
@@ -52,10 +53,24 @@ export const createTeam = async (req, res) => {
       [name.trim(), description?.trim() || null]
     );
 
+    const newTeamId = result.insertId;
+
+    // Record audit log
+    await createAuditLog({
+      userId: req.user.userId,
+      action: "SUPPORT_TEAM_CREATED",
+      resourceType: "SUPPORT_TEAM",
+      resourceId: newTeamId,
+      changes: {
+        name: name.trim(),
+        description: description?.trim() || null,
+      },
+    });
+
     res.status(201).json({
       message: "Team created successfully",
       team: {
-        id: result.insertId,
+        id: newTeamId,
         name: name.trim(),
         description: description?.trim() || null,
       },
@@ -179,6 +194,19 @@ export const addTeamMember = async (req, res) => {
       [teamId, userId]
     );
 
+    // Record audit log
+    await createAuditLog({
+      userId: req.user.userId,
+      action: "TEAM_MEMBER_ADDED",
+      resourceType: "SUPPORT_TEAM",
+      resourceId: teamId,
+      changes: {
+        teamName: teams[0].name,
+        addedUserId: userId,
+        addedUserName: user.name || null,
+      },
+    });
+
     return res.status(201).json({
       message: "Team member added successfully",
       member: {
@@ -254,7 +282,7 @@ export const removeTeamMember = async (req, res) => {
 
     // Check whether the team exists
     const [teams] = await database.promise().query(
-      "SELECT id FROM support_teams WHERE id = ?",
+      "SELECT id, name FROM support_teams WHERE id = ?",
       [id]
     );
 
@@ -284,6 +312,18 @@ export const removeTeamMember = async (req, res) => {
       [id, userId]
     );
 
+    // Record audit log
+    await createAuditLog({
+      userId: req.user.userId,
+      action: "TEAM_MEMBER_REMOVED",
+      resourceType: "SUPPORT_TEAM",
+      resourceId: Number(id),
+      changes: {
+        teamName: teams[0].name,
+        removedUserId: Number(userId),
+      },
+    });
+
     return res.status(200).json({
       message: "Team member removed successfully",
     });
@@ -297,43 +337,61 @@ export const removeTeamMember = async (req, res) => {
 };
 
 // Update support team
-export const updateTeam = (req, res) => {
+export const updateTeam = async (req, res) => {
+  try {
     const { id } = req.params;
     const { name, description } = req.body;
 
-    if (!name || !description) {
-        return res.status(400).json({
-            message: "Team name and description are required"
-        });
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        message: "Team name is required",
+      });
     }
 
-    const sql = `
-        UPDATE support_teams
-        SET name = ?, description = ?
-        WHERE id = ?
-    `;
+    const [existing] = await database.promise().query(
+      "SELECT id, name, description FROM support_teams WHERE id = ?",
+      [id]
+    );
 
-    database.query(sql, [name, description, id], (err, result) => {
-        if (err) {
-            console.error("Error updating team:", err);
-            return res.status(500).json({
-                message: "Internal server error"
-            });
-        }
+    if (existing.length === 0) {
+      return res.status(404).json({
+        message: "Team not found",
+      });
+    }
 
-        if (result.affectedRows === 0) {
-            return res.status(404).json({
-                message: "Team not found"
-            });
-        }
+    const previousTeam = existing[0];
 
-        return res.status(200).json({
-            message: "Team updated successfully",
-            team: {
-                id: Number(id),
-                name,
-                description
-            }
-        });
+    await database.promise().query(
+      `UPDATE support_teams
+       SET name = ?, description = ?
+       WHERE id = ?`,
+      [name.trim(), description?.trim() || null, id]
+    );
+
+    // Record audit log
+    await createAuditLog({
+      userId: req.user.userId,
+      action: "SUPPORT_TEAM_UPDATED",
+      resourceType: "SUPPORT_TEAM",
+      resourceId: Number(id),
+      changes: {
+        previous: { name: previousTeam.name, description: previousTeam.description },
+        new: { name: name.trim(), description: description?.trim() || null },
+      },
     });
+
+    return res.status(200).json({
+      message: "Team updated successfully",
+      team: {
+        id: Number(id),
+        name: name.trim(),
+        description: description?.trim() || null,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating team:", error);
+    return res.status(500).json({
+      message: "Failed to update support team",
+    });
+  }
 };
