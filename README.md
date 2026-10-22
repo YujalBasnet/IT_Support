@@ -1,25 +1,32 @@
 # IT Support System
 
-A full-stack IT support ticket management system built with React, Vite, Tailwind CSS, Node.js, Express, and MySQL.
+A full-stack IT support ticket management application designed for organizations to streamline support requests, ticket tracking, user management, and team coordination.
 
-The application provides a central place for employees to submit support tickets, support agents to manage and resolve requests, and administrators to manage users, teams, categories, and system access.
+Employees can submit support requests, support agents can update and resolve tickets, and administrators can manage users, teams, categories, roles, attachments, and access control.
+
+## Overview
+
+This project consists of:
+
+- Frontend: React + Vite + Tailwind CSS
+- Backend: Node.js + Express + MySQL
+- Authentication: JWT + Google OAuth 2.0
+- File handling: Multer
+- Email notifications: Nodemailer
+- API documentation: Swagger UI
 
 ## Features
 
-- User authentication with Google OAuth 2.0
-- JWT-based authorization
-- Role-based access control for:
-  - Employees
-  - Support agents
-  - Administrators
-- Create, view, update, and manage IT support tickets
-- Ticket categories and team assignment
-- File attachments for tickets
-- User and team management
-- Email notifications through SMTP
-- MySQL database integration
-- Centralized API error handling
-- Responsive React frontend
+- Secure authentication and authorization
+- Role-based access control for employees, support agents, and admins
+- Ticket creation, viewing, updating, and status tracking
+- Team and category assignment for tickets
+- Attachment upload support for support requests
+- User and team management tools
+- Google OAuth login support
+- SMTP-based email notifications
+- Responsive web interface
+- REST API with centralized error handling
 
 ## Tech Stack
 
@@ -31,94 +38,96 @@ The application provides a central place for employees to submit support tickets
 - Tailwind CSS
 - Axios
 - Lucide React
-- Oxlint
 
 ### Backend
 
 - Node.js
 - Express 5
-- MySQL with `mysql2`
-- JSON Web Tokens
-- Google Authentication Library
-- `bcryptjs`
-- Multer for file uploads
-- Nodemailer for email delivery
-- Helmet and CORS
+- MySQL 8
+- MySQL2
+- JWT
+- Google Auth Library
+- bcryptjs
+- Multer
+- Nodemailer
+- Helmet
+- CORS
+- Swagger UI
 
 ## Project Structure
 
 ```text
 IT_Support/
 ├── backend/
-│   ├── controllers/       # Request and business logic controllers
-│   ├── database/           # MySQL connection and database utilities
-│   ├── middleware/         # Authentication and error-handling middleware
-│   ├── routes/             # Authentication, ticket, user, team, category, and attachment routes
-│   ├── services/           # Email and OAuth-related services
-│   ├── uploads/            # Uploaded ticket attachments
-│   ├── index.js            # Express server entry point
-│   └── package.json
+│   ├── config/
+│   ├── controllers/
+│   ├── database/
+│   ├── middleware/
+│   ├── routes/
+│   ├── services/
+│   ├── uploads/
+│   ├── index.js
+│   ├── package.json
+│   └── .env.example (if present in your setup)
 ├── frontend/
-│   ├── public/             # Static frontend assets
+│   ├── public/
 │   ├── src/
-│   │   ├── assets/         # Application assets
-│   │   ├── components/     # Reusable React components
-│   │   ├── layout/         # Shared page layouts
-│   │   ├── pages/          # Application pages
-│   │   ├── services/       # API and frontend service modules
-│   │   ├── App.jsx         # Application routes and root component
-│   │   └── main.jsx        # React entry point
 │   ├── index.html
-│   └── package.json
-└── README.md
+│   ├── package.json
+│   └── vite.config.*
+├── README.md
+└── .gitignore
 ```
 
 ## Prerequisites
 
-Install the following before running the project:
+Before running the project, make sure you have:
 
-- Node.js 18 or later
+- Node.js 18 or newer
 - npm
-- MySQL 8 or later
-- A Google Cloud OAuth 2.0 client, if Google login is enabled
-- An SMTP account, if email notifications are enabled
+- MySQL 8 or newer
+- A Google Cloud OAuth 2.0 client ID and secret (optional if Google login is enabled)
+- SMTP credentials for email sending (optional if email notifications are enabled)
 
-## Installation
-
-Clone the repository and install dependencies for both applications:
+## Clone the Repository
 
 ```bash
 git clone https://github.com/YujalBasnet/IT_Support.git
 cd IT_Support
+```
 
+## Install Dependencies
+
+### Backend
+
+```bash
 cd backend
 npm install
+```
 
+### Frontend
+
+```bash
 cd ../frontend
 npm install
 ```
 
-## Environment Variables
+## Environment Setup
 
-Create a `.env` file inside the `backend` directory. Do not commit this file to version control.
+Create a `.env` file inside the `backend` directory.
+
+Example:
 
 ```env
-# Server
 PORT=5000
-
-# MySQL database
 DB_HOST=localhost
+DB_PORT=3306
 DB_USER=your_database_user
 DB_PASSWORD=your_database_password
-DB_NAME=your_database_name
-DB_PORT=3306
-
-# Authentication
-JWT_SECRET=your_jwt_secret
+DB_NAME=it_support
+JWT_SECRET=your_super_secret_key
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
-
-# SMTP email configuration
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_USER=your_smtp_username
@@ -126,15 +135,24 @@ SMTP_PASSWORD=your_smtp_password
 EMAIL_FROM=your_sender_email@example.com
 ```
 
-Configure the Google OAuth redirect URI to match the backend callback used by the application:
+Important:
 
-```text
-http://localhost:5000/auth/google/callback
+- Do not commit `.env` files to version control.
+- Use strong credentials and secrets in local and production environments.
+- Update Google OAuth redirect URIs to match your deployed or local app URLs.
+
+## Database Setup
+
+From the backend directory, initialize the database schema and seed data:
+
+```bash
+cd backend
+npm run db:init
 ```
 
-If the frontend or backend URLs change, update the corresponding redirect and callback configuration in the application.
+This should set up the required MySQL tables and starter data for roles, categories, teams, and users.
 
-## Running the Application
+## Run the Application
 
 ### Start the backend
 
@@ -143,101 +161,84 @@ cd backend
 npm run dev
 ```
 
-The API server runs at:
+The backend API runs on:
 
 ```text
 http://localhost:5000
 ```
 
-To start the backend without Nodemon:
+Swagger documentation is available at:
 
-```bash
-node index.js
+```text
+http://localhost:5000/api-docs
 ```
 
 ### Start the frontend
 
-Open another terminal:
+Open a second terminal and run:
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-Vite will display the local development URL, normally:
+The frontend usually runs at:
 
 ```text
 http://localhost:5173
 ```
 
-## API Areas
+## Main API Areas
 
-The backend exposes route groups for:
+The backend includes route groups such as:
 
-- `/auth` - Authentication and Google OAuth
-- `/tickets` - Ticket creation and ticket management
-- `/users` - User-related operations
-- `/teams` - Support team management
-- `/attachments` - Ticket attachment uploads and access
-- `/categories` - Ticket category management
+- `/auth` — login, registration, and OAuth
+- `/tickets` — ticket management
+- `/users` — user APIs
+- `/teams` — support team management
+- `/attachments` — file upload handling
+- `/categories` — ticket categories
 
-The root endpoint can be used as a basic server health check:
-
-```text
-GET http://localhost:5000/
-```
-
-## Available Scripts
-
-### Frontend
-
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Start the Vite development server |
-| `npm run build` | Create a production build |
-| `npm run lint` | Run Oxlint |
-| `npm run preview` | Preview the production build locally |
+## Scripts
 
 ### Backend
 
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Start the Express server with Nodemon |
-| `node index.js` | Start the Express server directly |
-
-## Email Configuration Test
-
-The backend includes a utility for checking the SMTP connection and sending a test email:
-
 ```bash
-cd backend
-node testEmail.js
+npm run dev
+npm run db:init
 ```
 
-Make sure the SMTP environment variables are configured before running this command.
+### Frontend
+
+```bash
+npm run dev
+npm run build
+npm run lint
+npm run preview
+```
 
 ## Security Notes
 
-- Keep `.env` files and credentials out of source control.
-- Use a strong, unique value for `JWT_SECRET`.
-- Configure production CORS origins instead of allowing unrestricted origins.
-- Use HTTPS in production.
-- Protect uploaded files and validate file types and sizes.
-- Use production database credentials only in secure deployment environments.
+- Store secrets in `.env` files and never commit them
+- Protect API routes with proper role checks
+- Use HTTPS in production
+- Restrict CORS for production deployment
+- Validate uploaded files and limit file sizes
+- Use secure database credentials in live environments
 
 ## Production Considerations
 
-Before deploying, update the application to use production-specific values for:
+Before deploying, update the following:
 
-- Frontend and backend URLs
+- Frontend base URL
+- Backend API URL
 - Google OAuth redirect URIs
-- CORS configuration
+- CORS policies
+- JWT secret
 - Database credentials
-- JWT secrets
 - SMTP configuration
-- File storage and upload handling
 
-Build the frontend with:
+To build the frontend for production:
 
 ```bash
 cd frontend
@@ -246,11 +247,22 @@ npm run build
 
 ## License
 
-No license has been specified for this repository yet.
+This repository does not currently specify a license.
 
-## Author
+## Authors
 
-Developed by [YujalBasnet](https://github.com/YujalBasnet) & [YogeshPhuyal](https://github.com/yogeshphuyal85-dev)
+- [YujalBasnet](https://github.com/YujalBasnet)
+- [YogeshPhuyal](https://github.com/yogeshphuyal85-dev)
 
+## Contributing
 
+Contributions are welcome. If you want to improve the project:
 
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Open a pull request
+
+## Support
+
+For questions or issues, open an issue in the GitHub repository or contact the project maintainer.
