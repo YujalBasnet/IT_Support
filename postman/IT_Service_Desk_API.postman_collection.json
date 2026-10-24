@@ -99,6 +99,8 @@
                   "if (res.token) {",
                   "  pm.collectionVariables.set(\"token\", res.token);",
                   "  pm.collectionVariables.set(\"adminToken\", res.token);",
+                  "  pm.environment.set(\"token\", res.token);",
+                  "  pm.environment.set(\"adminToken\", res.token);",
                   "  console.log(\"Admin token saved successfully.\");",
                   "}",
                   "pm.test('Status code is 200', function () {",
@@ -144,6 +146,7 @@
                   "const res = pm.response.json();",
                   "if (res.token) {",
                   "  pm.collectionVariables.set(\"agentToken\", res.token);",
+                  "  pm.environment.set(\"agentToken\", res.token);",
                   "}",
                   "pm.test('Status code is 200', function () {",
                   "  pm.response.to.have.status(200);",
@@ -188,6 +191,7 @@
                   "const res = pm.response.json();",
                   "if (res.token) {",
                   "  pm.collectionVariables.set(\"employeeToken\", res.token);",
+                  "  pm.environment.set(\"employeeToken\", res.token);",
                   "}",
                   "pm.test('Status code is 200', function () {",
                   "  pm.response.to.have.status(200);",
@@ -397,6 +401,7 @@
                   "const res = pm.response.json();",
                   "if (res.ticket && res.ticket.id) {",
                   "  pm.collectionVariables.set(\"ticketId\", String(res.ticket.id));",
+                  "  pm.environment.set(\"ticketId\", String(res.ticket.id));",
                   "}",
                   "pm.test('Ticket created (201)', function () {",
                   "  pm.response.to.have.status(201);",
@@ -890,6 +895,7 @@
                   "const res = pm.response.json();",
                   "if (res.category && res.category.id) {",
                   "  pm.collectionVariables.set(\"categoryId\", String(res.category.id));",
+                  "  pm.environment.set(\"categoryId\", String(res.category.id));",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -1047,6 +1053,7 @@
                   "const res = pm.response.json();",
                   "if (res.team && res.team.id) {",
                   "  pm.collectionVariables.set(\"teamId\", String(res.team.id));",
+                  "  pm.environment.set(\"teamId\", String(res.team.id));",
                   "}"
                 ],
                 "type": "text/javascript"
