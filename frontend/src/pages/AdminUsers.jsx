@@ -303,7 +303,7 @@ export default function AdminUsers() {
             <Users size={40} className="mx-auto text-slate-300 mb-2" />
             <p className="font-semibold text-slate-700">No users found</p>
             <p className="text-xs text-slate-400 mt-1">
-              Try adjusting your search or role filters.
+              Try adjusting your search or role filters
             </p>
           </div>
         ) : (
