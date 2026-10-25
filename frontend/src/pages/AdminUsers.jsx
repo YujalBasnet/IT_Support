@@ -303,7 +303,7 @@ export default function AdminUsers() {
             <Users size={40} className="mx-auto text-slate-300 mb-2" />
             <p className="font-semibold text-slate-700">No users found</p>
             <p className="text-xs text-slate-400 mt-1">
-              Try adjusting your search or role filters.
+              Try adjusting your search or role filters
             </p>
           </div>
         ) : (
@@ -385,7 +385,7 @@ export default function AdminUsers() {
                             }}
                             className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
                           >
-                            Change Role
+                            Change Role?
                           </button>
 
                           <button
