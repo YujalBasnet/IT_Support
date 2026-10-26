@@ -87,7 +87,7 @@ export default function Layout() {
                 }
               >
                 <Users size={20} />
-                User Directory
+                User's Directory
               </NavLink>
 
               <NavLink
