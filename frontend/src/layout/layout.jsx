@@ -87,7 +87,7 @@ export default function Layout() {
                 }
               >
                 <Users size={20} />
-                User Directory
+                User's Directory
               </NavLink>
 
               <NavLink
@@ -115,7 +115,7 @@ export default function Layout() {
                 }
               >
                 <Tag size={20} />
-                Ticket Categories
+                Ticket Categoriess
               </NavLink>
 
               <NavLink
@@ -129,7 +129,7 @@ export default function Layout() {
                 }
               >
                 <Shield size={20} />
-                Audit Logs
+                Audit Logss
               </NavLink>
             </>
           )}
