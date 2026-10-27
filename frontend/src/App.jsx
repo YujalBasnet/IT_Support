@@ -14,6 +14,7 @@ import AdminTeams from "./pages/AdminTeams.jsx";
 import AdminCategories from "./pages/AdminCategories.jsx";
 import AdminAuditLogs from "./pages/AdminAuditLogs.jsx";
 import LandingPage from "./components/global/LandingPage.jsx";
+import Profile from "./pages/Profile.jsx";
 
   const router = createBrowserRouter([
   {
@@ -107,6 +108,10 @@ import LandingPage from "./components/global/LandingPage.jsx";
           {
             path: "/tickets/:id",
             element: <TicketDetails />,
+          },
+          {
+            path: "/profile",
+            element: <Profile />,
           },
         ],
       },
