@@ -35,7 +35,7 @@ export default function Profile() {
       console.error("Failed to load profile:", err);
       setError(
         err.response?.data?.message ||
-          "Failed to load user profile. Please verify your connection."
+        "Failed to load user profile. Please verify your connection."
       );
     } finally {
       setLoading(false);
@@ -92,10 +92,10 @@ export default function Profile() {
     return isNaN(d.getTime())
       ? "N/A"
       : d.toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        });
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
   };
 
   if (loading) {
