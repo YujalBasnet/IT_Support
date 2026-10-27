@@ -154,6 +154,8 @@ export const getMe = async (req, res) => {
           u.email,
           u.profile_image,
           u.account_status,
+          u.role_id,
+          u.created_at,
           r.name AS role
         FROM users u
         JOIN roles r ON u.role_id = r.id
@@ -167,9 +169,67 @@ export const getMe = async (req, res) => {
       });
     }
 
+    const user = users[0];
+    let stats = {
+      totalTickets: 0,
+      openTickets: 0,
+      inProgressTickets: 0,
+      resolvedTickets: 0,
+      closedTickets: 0,
+    };
+
+    if (user.role_id === 1) {
+      const [ticketCounts] = await database.promise().query(
+        `SELECT 
+          COUNT(*) as total,
+          SUM(CASE WHEN status IN ('OPEN', 'ASSIGNED', 'REOPENED', 'WAITING_FOR_USER') THEN 1 ELSE 0 END) as openCount,
+          SUM(CASE WHEN status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as inProgressCount,
+          SUM(CASE WHEN status = 'RESOLVED' THEN 1 ELSE 0 END) as resolvedCount,
+          SUM(CASE WHEN status = 'CLOSED' THEN 1 ELSE 0 END) as closedCount
+        FROM tickets 
+        WHERE requester_id = ?`,
+        [user.id]
+      );
+      if (ticketCounts.length > 0) {
+        stats = {
+          totalTickets: Number(ticketCounts[0].total) || 0,
+          openTickets: Number(ticketCounts[0].openCount) || 0,
+          inProgressTickets: Number(ticketCounts[0].inProgressCount) || 0,
+          resolvedTickets: Number(ticketCounts[0].resolvedCount) || 0,
+          closedTickets: Number(ticketCounts[0].closedCount) || 0,
+        };
+      }
+    } else if (user.role_id === 2) {
+      const [ticketCounts] = await database.promise().query(
+        `SELECT 
+          COUNT(*) as total,
+          SUM(CASE WHEN status IN ('OPEN', 'ASSIGNED', 'REOPENED') THEN 1 ELSE 0 END) as assignedCount,
+          SUM(CASE WHEN status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as inProgressCount,
+          SUM(CASE WHEN status = 'RESOLVED' THEN 1 ELSE 0 END) as resolvedCount
+        FROM tickets 
+        WHERE assigned_agent_id = ?`,
+        [user.id]
+      );
+      const [teams] = await database.promise().query(
+        `SELECT st.id, st.name 
+         FROM support_teams st
+         JOIN team_members tm ON st.id = tm.team_id
+         WHERE tm.user_id = ?`,
+        [user.id]
+      );
+      stats = {
+        totalTickets: Number(ticketCounts[0]?.total) || 0,
+        assignedTickets: Number(ticketCounts[0]?.assignedCount) || 0,
+        inProgressTickets: Number(ticketCounts[0]?.inProgressCount) || 0,
+        resolvedTickets: Number(ticketCounts[0]?.resolvedCount) || 0,
+        teams: teams || [],
+      };
+    }
+
     res.json({
       message: "User information retrieved successfully",
-      user: users[0],
+      user,
+      stats,
     });
 
   } catch (error) {

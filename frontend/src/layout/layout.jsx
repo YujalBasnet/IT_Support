@@ -1,5 +1,5 @@
 
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { Outlet, NavLink, Link, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Ticket,
@@ -9,6 +9,7 @@ import {
   Users2,
   Tag,
   Shield,
+  User,
 } from "lucide-react";
 
 export default function Layout() {
@@ -68,6 +69,20 @@ export default function Layout() {
               : roleId === 2
               ? "Assigned Queue"
               : "My Tickets"}
+          </NavLink>
+
+          <NavLink
+            to="/profile"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+                isActive
+                  ? "bg-blue-600 text-white font-semibold"
+                  : "text-slate-300 hover:bg-slate-800"
+              }`
+            }
+          >
+            <User size={20} />
+            My Profile
           </NavLink>
 
           {roleId === 3 && (
@@ -153,21 +168,25 @@ export default function Layout() {
             IT Support Ticket System
           </h1>
 
-          <div className="flex items-center gap-3">
+          <Link
+            to="/profile"
+            className="flex items-center gap-3 p-1.5 -mr-1.5 rounded-xl hover:bg-slate-50 transition cursor-pointer group"
+            title="View Profile"
+          >
             {user?.profile_image ? (
               <img
                 src={user.profile_image}
                 alt="Profile"
-                className="w-9 h-9 rounded-full object-cover"
+                className="w-9 h-9 rounded-full object-cover ring-2 ring-transparent group-hover:ring-blue-400 transition"
               />
             ) : (
-              <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold">
+              <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold group-hover:bg-blue-200 transition">
                 {user?.name?.charAt(0) || "U"}
               </div>
             )}
 
-            <div className="hidden sm:block">
-              <p className="text-sm font-semibold text-slate-800">
+            <div className="hidden sm:block text-left">
+              <p className="text-sm font-semibold text-slate-800 group-hover:text-blue-600 transition">
                 {user?.name || "User"}
               </p>
               <p className="text-xs text-slate-500">
@@ -178,7 +197,7 @@ export default function Layout() {
                   : "Employee"}
               </p>
             </div>
-          </div>
+          </Link>
         </header>
 
         <main className="p-8">
