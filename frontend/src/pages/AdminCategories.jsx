@@ -203,11 +203,10 @@ export default function AdminCategories() {
       {/* Message Banner */}
       {message.text && (
         <div
-          className={`p-4 rounded-xl flex items-center gap-3 text-sm border ${
-            message.type === "success"
+          className={`p-4 rounded-xl flex items-center gap-3 text-sm border ${message.type === "success"
               ? "bg-green-50 text-green-800 border-green-200"
               : "bg-red-50 text-red-800 border-red-200"
-          }`}
+            }`}
         >
           {message.type === "success" ? (
             <CheckCircle2 size={18} className="shrink-0" />
@@ -313,16 +312,14 @@ export default function AdminCategories() {
 
                       <td className="py-3.5 px-3">
                         <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                            isActive
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${isActive
                               ? "bg-green-100 text-green-700"
                               : "bg-slate-200 text-slate-600"
-                          }`}
+                            }`}
                         >
                           <span
-                            className={`h-1.5 w-1.5 rounded-full ${
-                              isActive ? "bg-green-500" : "bg-slate-400"
-                            }`}
+                            className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-green-500" : "bg-slate-400"
+                              }`}
                           />
                           {isActive ? "Active" : "Disabled"}
                         </span>
@@ -339,17 +336,16 @@ export default function AdminCategories() {
                           <button
                             onClick={() => handleToggleStatus(cat)}
                             disabled={togglingId === cat.id}
-                            className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition cursor-pointer disabled:opacity-50 ${
-                              isActive
+                            className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition cursor-pointer disabled:opacity-50 ${isActive
                                 ? "text-amber-700 hover:bg-amber-50 border border-amber-200"
                                 : "text-green-700 hover:bg-green-50 border border-green-200"
-                            }`}
+                              }`}
                           >
                             {togglingId === cat.id
                               ? "Updating..."
                               : isActive
-                              ? "Disable"
-                              : "Enable"}
+                                ? "Disable"
+                                : "Enable"}
                           </button>
 
                           <button
@@ -415,7 +411,7 @@ export default function AdminCategories() {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Description
+                  Descriptionn
                 </label>
                 <textarea
                   rows={3}
@@ -448,8 +444,8 @@ export default function AdminCategories() {
                   {submitting
                     ? "Saving..."
                     : editingCategory
-                    ? "Update Category"
-                    : "Create Category"}
+                      ? "Update Category"
+                      : "Create Category"}
                 </button>
               </div>
             </form>

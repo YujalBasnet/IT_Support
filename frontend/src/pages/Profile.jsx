@@ -13,7 +13,6 @@ import {
   ArrowRight,
   RefreshCw,
   AlertCircle,
-  FileText,
   Building,
   KeyRound,
 } from "lucide-react";
@@ -38,6 +37,8 @@ export default function Profile() {
         "Failed to load user profile. Please verify your connection."
       );
     } finally {
+
+
       setLoading(false);
     }
   };
@@ -412,13 +413,7 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Security / Helpdesk Note */}
-        <div className="rounded-xl p-4 bg-blue-50/70 border border-blue-100 flex items-start gap-3 text-xs text-blue-900 leading-relaxed">
-          <FileText size={18} className="text-blue-600 shrink-0 mt-0.5" />
-          <div>
-            <span className="font-semibold">Security Note:</span> To update your official full name or work email address, please contact your IT Administrator or submit an account modification ticket through the service portal.
-          </div>
-        </div>
+
       </div>
     </div>
   );
