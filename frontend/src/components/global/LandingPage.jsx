@@ -605,7 +605,7 @@ export default function LandingPage() {
               <Headphones size={18} />
             </div>
             <span className="font-bold text-white text-sm">IT Support Hub</span>
-            <span className="text-xs text-slate-500">© {new Date().getFullYear()} Enterprise IT System.</span>
+            <span className="text-xs text-slate-500">© {new Date().getFullYear()} IT Support || Made with ❤️ by Yujal Khulal Basnet & Yogesh Phuyal.</span>
           </div>
 
           <div className="flex items-center gap-6 text-xs text-slate-400">
