@@ -73,10 +73,10 @@ export default function AgentDashboard() {
       const ticketList = Array.isArray(data.data)
         ? data.data
         : Array.isArray(data.tickets)
-        ? data.tickets
-        : Array.isArray(data)
-        ? data
-        : [];
+          ? data.tickets
+          : Array.isArray(data)
+            ? data
+            : [];
 
       setTickets(ticketList);
       setPagination(
@@ -250,7 +250,7 @@ export default function AgentDashboard() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-purple-500 text-sm"
           >
-            <option value="ALL">All Statuses</option>
+            <option value="ALL">All Status</option>
             <option value="ASSIGNED">Assigned</option>
             <option value="IN_PROGRESS">In Progress</option>
             <option value="WAITING_FOR_USER">Waiting for User</option>

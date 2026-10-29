@@ -185,11 +185,10 @@ export default function AdminUsers() {
       {/* Message Banner */}
       {message.text && (
         <div
-          className={`p-4 rounded-xl flex items-center gap-3 text-sm border ${
-            message.type === "success"
+          className={`p-4 rounded-xl flex items-center gap-3 text-sm border ${message.type === "success"
               ? "bg-green-50 text-green-800 border-green-200"
               : "bg-red-50 text-red-800 border-red-200"
-          }`}
+            }`}
         >
           {message.type === "success" ? (
             <CheckCircle2 size={18} className="shrink-0" />
@@ -278,7 +277,7 @@ export default function AdminUsers() {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:border-rose-500 bg-white"
               >
-                <option value="ALL">All Statuses</option>
+                <option value="ALL">All Status</option>
                 <option value="ACTIVE">Active</option>
                 <option value="INACTIVE">Inactive</option>
               </select>
@@ -361,16 +360,14 @@ export default function AdminUsers() {
 
                       <td className="py-3.5 px-3">
                         <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                            u.account_status === "ACTIVE"
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${u.account_status === "ACTIVE"
                               ? "bg-green-100 text-green-700"
                               : "bg-slate-200 text-slate-600"
-                          }`}
+                            }`}
                         >
                           <span
-                            className={`h-1.5 w-1.5 rounded-full ${
-                              u.account_status === "ACTIVE" ? "bg-green-500" : "bg-slate-400"
-                            }`}
+                            className={`h-1.5 w-1.5 rounded-full ${u.account_status === "ACTIVE" ? "bg-green-500" : "bg-slate-400"
+                              }`}
                           />
                           {u.account_status}
                         </span>
@@ -392,17 +389,16 @@ export default function AdminUsers() {
                             disabled={updatingStatusId === u.id || isCurrent}
                             onClick={() => handleStatusToggle(u)}
                             title={isCurrent ? "Cannot deactivate yourself" : ""}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
-                              u.account_status === "ACTIVE"
+                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${u.account_status === "ACTIVE"
                                 ? "border border-red-200 text-red-600 hover:bg-red-50"
                                 : "border border-green-200 text-green-700 hover:bg-green-50"
-                            }`}
+                              }`}
                           >
                             {updatingStatusId === u.id
                               ? "Updating..."
                               : u.account_status === "ACTIVE"
-                              ? "Deactivate"
-                              : "Activate"}
+                                ? "Deactivate"
+                                : "Activate"}
                           </button>
                         </div>
                       </td>
@@ -464,11 +460,10 @@ export default function AdminUsers() {
                   ].map((roleOption) => (
                     <label
                       key={roleOption.id}
-                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
-                        newRole === roleOption.id
+                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${newRole === roleOption.id
                           ? "border-rose-500 bg-rose-50/50"
                           : "border-slate-200 hover:bg-slate-50"
-                      }`}
+                        }`}
                     >
                       <input
                         type="radio"

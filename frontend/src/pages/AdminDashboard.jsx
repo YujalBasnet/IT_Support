@@ -4,78 +4,78 @@ import { Users, Users2, Tag, ArrowRight } from "lucide-react";
 import api from "../services/api";
 
 export default function AdminDashboard() {
-  
+
   const [tickets, setTickets] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  
+
   const [stats, setStats] = useState({
-  total: 0,
-  open: 0,
-  inProgress: 0,
-  resolved: 0,
-});
- 
-const [searchTerm, setSearchTerm] = useState("");
-const [debouncedSearch, setDebouncedSearch] = useState("");
-const [statusFilter, setStatusFilter] = useState("ALL");
-const [priorityFilter, setPriorityFilter] = useState("ALL");
-const [currentPage, setCurrentPage] = useState(1);
-const [pagination, setPagination] = useState({
-  page: 1,
-  limit: 5,
-  total: 0,
-  totalPages: 0,
-});
+    total: 0,
+    open: 0,
+    inProgress: 0,
+    resolved: 0,
+  });
 
-const [teams, setTeams] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [priorityFilter, setPriorityFilter] = useState("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 5,
+    total: 0,
+    totalPages: 0,
+  });
 
-const [assignmentTickets, setAssignmentTickets] = useState([]);
-const [assignmentSearch, setAssignmentSearch] = useState("");
-const [debouncedAssignmentSearch, setDebouncedAssignmentSearch] = useState("");
-const [assignmentLoading, setAssignmentLoading] = useState(false);
+  const [teams, setTeams] = useState([]);
+
+  const [assignmentTickets, setAssignmentTickets] = useState([]);
+  const [assignmentSearch, setAssignmentSearch] = useState("");
+  const [debouncedAssignmentSearch, setDebouncedAssignmentSearch] = useState("");
+  const [assignmentLoading, setAssignmentLoading] = useState(false);
 
 
 
-const [selectedTicket, setSelectedTicket] = useState(null);
-const [selectedTeam, setSelectedTeam] = useState("");
-const [teamMembers, setTeamMembers] = useState([]);
-const [selectedAgent, setSelectedAgent] = useState("");
-const [assigning, setAssigning] = useState(false);
-const [assignError, setAssignError] = useState("");
-const [assignSuccess, setAssignSuccess] = useState("");
-const [searching, setSearching] = useState(false);
-useEffect(() => {
-  const timer = setTimeout(() => {
-    console.log("Debounced search term:", searchTerm);
-    setDebouncedSearch(searchTerm);
-  }, 900);
-
-  return () => clearTimeout(timer);
-}, [searchTerm]);
-
-  
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [selectedTeam, setSelectedTeam] = useState("");
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [selectedAgent, setSelectedAgent] = useState("");
+  const [assigning, setAssigning] = useState(false);
+  const [assignError, setAssignError] = useState("");
+  const [assignSuccess, setAssignSuccess] = useState("");
+  const [searching, setSearching] = useState(false);
   useEffect(() => {
-  setCurrentPage(1);
-}, [debouncedSearch, statusFilter, priorityFilter]);
+    const timer = setTimeout(() => {
+      console.log("Debounced search term:", searchTerm);
+      setDebouncedSearch(searchTerm);
+    }, 900);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, statusFilter, priorityFilter]);
   useEffect(() => {
     const controller = new AbortController();
     const fetchTickets = async () => {
       setSearching(true);
       setError("");
       try {
-      
-const { data } = await api.get("/tickets", {
-  params: {
-    page: currentPage,
-    limit: 5,
-    search: debouncedSearch || undefined,
-    status: statusFilter === "ALL" ? undefined : statusFilter,
-    priority: priorityFilter === "ALL" ? undefined : priorityFilter,
-  },
-  signal: controller.signal,
-});
+
+        const { data } = await api.get("/tickets", {
+          params: {
+            page: currentPage,
+            limit: 5,
+            search: debouncedSearch || undefined,
+            status: statusFilter === "ALL" ? undefined : statusFilter,
+            priority: priorityFilter === "ALL" ? undefined : priorityFilter,
+          },
+          signal: controller.signal,
+        });
 
 
         // const { data: statsData } = await api.get("/tickets/stats");
@@ -85,78 +85,78 @@ const { data } = await api.get("/tickets", {
         const ticketList = Array.isArray(data)
           ? data
           : Array.isArray(data.data)
-          ? data.data
-          : Array.isArray(data.tickets)
-          ? data.tickets
-          : null;
+            ? data.data
+            : Array.isArray(data.tickets)
+              ? data.tickets
+              : null;
 
         if (!ticketList) {
           throw new Error("Unexpected tickets response format");
         }
 
         setTickets(ticketList);
-setPagination(
-  data.pagination || {
-    page: currentPage,
-    limit: 5,
-    total: ticketList.length,
-    totalPages: 1,
-  }
-);
+        setPagination(
+          data.pagination || {
+            page: currentPage,
+            limit: 5,
+            total: ticketList.length,
+            totalPages: 1,
+          }
+        );
       } catch (err) {
-  if (err.code === "ERR_CANCELED") return;
+        if (err.code === "ERR_CANCELED") return;
 
-  console.error("Failed to load tickets:", err);
+        console.error("Failed to load tickets:", err);
 
-  setError(
-    err.response?.data?.message ||
-    err.message ||
-    "Failed to load tickets"
-  );
+        setError(
+          err.response?.data?.message ||
+          err.message ||
+          "Failed to load tickets"
+        );
 
-  setTickets([]);
-} finally {
-  if(!controller.signal.aborted){
-    setSearching(false);
-    setLoading(false);
-  }
- 
-}
+        setTickets([]);
+      } finally {
+        if (!controller.signal.aborted) {
+          setSearching(false);
+          setLoading(false);
+        }
+
+      }
     };
 
     fetchTickets();
 
-return () => {
-  controller.abort();
-};
-}, [currentPage, debouncedSearch, statusFilter, priorityFilter]);
+    return () => {
+      controller.abort();
+    };
+  }, [currentPage, debouncedSearch, statusFilter, priorityFilter]);
 
 
 
 
 
-// NEW: Fetch dashboard statistics separately
-useEffect(() => {
-  const controller = new AbortController();
+  // NEW: Fetch dashboard statistics separately
+  useEffect(() => {
+    const controller = new AbortController();
 
-  const fetchStats = async () => {
-    try {
-      const { data } = await api.get("/tickets/stats", {
-        signal: controller.signal,
-      });
+    const fetchStats = async () => {
+      try {
+        const { data } = await api.get("/tickets/stats", {
+          signal: controller.signal,
+        });
 
-      setStats(data);
-    } catch (err) {
-      if (err.code === "ERR_CANCELED") return;
+        setStats(data);
+      } catch (err) {
+        if (err.code === "ERR_CANCELED") return;
 
-      console.error("Failed to load ticket statistics:", err);
-    }
-  };
+        console.error("Failed to load ticket statistics:", err);
+      }
+    };
 
-  fetchStats();
+    fetchStats();
 
-  return () => controller.abort();
-}, []);
+    return () => controller.abort();
+  }, []);
 
 
 
@@ -164,258 +164,258 @@ useEffect(() => {
 
 
   const getStatusStyle = (status) => {
-  const styles = {
-    OPEN: "bg-blue-100 text-blue-700",
-    ASSIGNED: "bg-purple-100 text-purple-700",
-    IN_PROGRESS: "bg-amber-100 text-amber-700",
-    WAITING_FOR_USER: "bg-orange-100 text-orange-700",
-    RESOLVED: "bg-green-100 text-green-700",
-    CLOSED: "bg-slate-200 text-slate-700",
-    REOPENED: "bg-red-100 text-red-700",
+    const styles = {
+      OPEN: "bg-blue-100 text-blue-700",
+      ASSIGNED: "bg-purple-100 text-purple-700",
+      IN_PROGRESS: "bg-amber-100 text-amber-700",
+      WAITING_FOR_USER: "bg-orange-100 text-orange-700",
+      RESOLVED: "bg-green-100 text-green-700",
+      CLOSED: "bg-slate-200 text-slate-700",
+      REOPENED: "bg-red-100 text-red-700",
+    };
+
+    return styles[status] || "bg-gray-100 text-gray-700";
   };
 
-  return styles[status] || "bg-gray-100 text-gray-700";
-};
+  const getPriorityStyle = (priority) => {
+    const styles = {
+      LOW: "bg-slate-100 text-slate-700",
+      MEDIUM: "bg-blue-100 text-blue-700",
+      HIGH: "bg-orange-100 text-orange-700",
+      URGENT: "bg-red-100 text-red-700",
+    };
 
-const getPriorityStyle = (priority) => {
-  const styles = {
-    LOW: "bg-slate-100 text-slate-700",
-    MEDIUM: "bg-blue-100 text-blue-700",
-    HIGH: "bg-orange-100 text-orange-700",
-    URGENT: "bg-red-100 text-red-700",
+    return styles[priority] || "bg-gray-100 text-gray-700";
   };
 
-  return styles[priority] || "bg-gray-100 text-gray-700";
-};
-
-const filteredTickets = tickets;
-  
+  const filteredTickets = tickets;
 
 
-useEffect(() => {
-  const fetchTeams = async () => {
-    try {
-      const { data } = await api.get("/teams");
-      setTeams(Array.isArray(data.teams) ? data.teams : []);
-    } catch (err) {
-      console.error("Failed to load teams:", err);
-      setAssignError(
-        err.response?.data?.message || "Failed to load support teams."
-      );
+
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        const { data } = await api.get("/teams");
+        setTeams(Array.isArray(data.teams) ? data.teams : []);
+      } catch (err) {
+        console.error("Failed to load teams:", err);
+        setAssignError(
+          err.response?.data?.message || "Failed to load support teams."
+        );
+      }
+    };
+
+    fetchTeams();
+  }, []);
+
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedAssignmentSearch(assignmentSearch.trim());
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [assignmentSearch]);
+
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const fetchAssignmentTickets = async () => {
+      setAssignmentLoading(true);
+
+      try {
+        const { data } = await api.get("/tickets", {
+          params: {
+            page: 1,
+            limit: 10,
+            search: debouncedAssignmentSearch || undefined,
+          },
+          signal: controller.signal,
+        });
+
+        const ticketList = Array.isArray(data.data)
+          ? data.data
+          : Array.isArray(data.tickets)
+            ? data.tickets
+            : Array.isArray(data)
+              ? data
+              : [];
+
+        setAssignmentTickets(ticketList);
+      } catch (err) {
+        if (err.code === "ERR_CANCELED") return;
+
+        console.error("Failed to load assignment tickets:", err);
+        setAssignmentTickets([]);
+      } finally {
+        if (!controller.signal.aborted) {
+          setAssignmentLoading(false);
+        }
+      }
+    };
+
+    fetchAssignmentTickets();
+
+    return () => controller.abort();
+  }, [debouncedAssignmentSearch]);
+
+
+
+  const handleAssignTicket = async (e) => {
+    e.preventDefault();
+
+    if (!selectedTicket || !selectedTeam || !selectedAgent) {
+      setAssignError("Please select a team and an agent.");
+      return;
     }
-  };
 
-  fetchTeams();
-}, []);
-
-
-useEffect(() => {
-  const timer = setTimeout(() => {
-    setDebouncedAssignmentSearch(assignmentSearch.trim());
-  }, 500);
-
-  return () => clearTimeout(timer);
-}, [assignmentSearch]);
-
-
-useEffect(() => {
-  const controller = new AbortController();
-
-  const fetchAssignmentTickets = async () => {
-    setAssignmentLoading(true);
+    setAssigning(true);
+    setAssignError("");
+    setAssignSuccess("");
 
     try {
+      await api.patch(`/tickets/${selectedTicket.id}/assign`, {
+        assigned_agent_id: Number(selectedAgent),
+        team_id: Number(selectedTeam),
+      });
+
+      setAssignSuccess(
+        `Ticket ${selectedTicket.ticket_number} assigned successfully.`
+      );
+
+      setSelectedTicket(null);
+      setSelectedTeam("");
+      setSelectedAgent("");
+      setTeamMembers([]);
+
+      // Refresh the ticket list and statistics.
       const { data } = await api.get("/tickets", {
         params: {
-          page: 1,
-          limit: 10,
-          search: debouncedAssignmentSearch || undefined,
+          page: currentPage,
+          limit: 5,
+          search: debouncedSearch || undefined,
+          status: statusFilter === "ALL" ? undefined : statusFilter,
+          priority: priorityFilter === "ALL" ? undefined : priorityFilter,
         },
-        signal: controller.signal,
       });
 
       const ticketList = Array.isArray(data.data)
         ? data.data
         : Array.isArray(data.tickets)
-        ? data.tickets
-        : Array.isArray(data)
-        ? data
-        : [];
+          ? data.tickets
+          : Array.isArray(data)
+            ? data
+            : [];
 
-      setAssignmentTickets(ticketList);
+      setTickets(ticketList);
+      setPagination(
+        data.pagination || {
+          page: currentPage,
+          limit: 5,
+          total: ticketList.length,
+          totalPages: 1,
+        }
+      );
+
+      const { data: statsData } = await api.get("/tickets/stats");
+      setStats(statsData);
     } catch (err) {
-      if (err.code === "ERR_CANCELED") return;
-
-      console.error("Failed to load assignment tickets:", err);
-      setAssignmentTickets([]);
+      console.error("Failed to assign ticket:", err);
+      setAssignError(
+        err.response?.data?.message || "Failed to assign ticket."
+      );
     } finally {
-      if (!controller.signal.aborted) {
-        setAssignmentLoading(false);
-      }
+      setAssigning(false);
     }
   };
 
-  fetchAssignmentTickets();
 
-  return () => controller.abort();
-}, [debouncedAssignmentSearch]);
+  const handleTeamChange = async (e) => {
+    const teamId = e.target.value;
 
-
-
-const handleAssignTicket = async (e) => {
-  e.preventDefault();
-
-  if (!selectedTicket || !selectedTeam || !selectedAgent) {
-    setAssignError("Please select a team and an agent.");
-    return;
-  }
-
-  setAssigning(true);
-  setAssignError("");
-  setAssignSuccess("");
-
-  try {
-    await api.patch(`/tickets/${selectedTicket.id}/assign`, {
-      assigned_agent_id: Number(selectedAgent),
-      team_id: Number(selectedTeam),
-    });
-
-    setAssignSuccess(
-      `Ticket ${selectedTicket.ticket_number} assigned successfully.`
-    );
-
-    setSelectedTicket(null);
-    setSelectedTeam("");
+    setSelectedTeam(teamId);
     setSelectedAgent("");
     setTeamMembers([]);
+    setAssignError("");
 
-    // Refresh the ticket list and statistics.
-    const { data } = await api.get("/tickets", {
-      params: {
-        page: currentPage,
-        limit: 5,
-        search: debouncedSearch || undefined,
-        status: statusFilter === "ALL" ? undefined : statusFilter,
-        priority: priorityFilter === "ALL" ? undefined : priorityFilter,
-      },
-    });
+    if (!teamId) return;
 
-    const ticketList = Array.isArray(data.data)
-      ? data.data
-      : Array.isArray(data.tickets)
-      ? data.tickets
-      : Array.isArray(data)
-      ? data
-      : [];
+    try {
+      const { data } = await api.get(`/teams/${teamId}/members`);
 
-    setTickets(ticketList);
-    setPagination(
-      data.pagination || {
-        page: currentPage,
-        limit: 5,
-        total: ticketList.length,
-        totalPages: 1,
-      }
-    );
+      // Supports common response shapes.
+      const members = Array.isArray(data.members)
+        ? data.members
+        : Array.isArray(data.teamMembers)
+          ? data.teamMembers
+          : [];
 
-    const { data: statsData } = await api.get("/tickets/stats");
-    setStats(statsData);
-  } catch (err) {
-    console.error("Failed to assign ticket:", err);
-    setAssignError(
-      err.response?.data?.message || "Failed to assign ticket."
-    );
-  } finally {
-    setAssigning(false);
-  }
-};
-
-
-const handleTeamChange = async (e) => {
-  const teamId = e.target.value;
-
-  setSelectedTeam(teamId);
-  setSelectedAgent("");
-  setTeamMembers([]);
-  setAssignError("");
-
-  if (!teamId) return;
-
-  try {
-    const { data } = await api.get(`/teams/${teamId}/members`);
-
-    // Supports common response shapes.
-    const members = Array.isArray(data.members)
-      ? data.members
-      : Array.isArray(data.teamMembers)
-      ? data.teamMembers
-      : [];
-
-    setTeamMembers(members);
-  } catch (err) {
-    console.error("Failed to load team members:", err);
-    setAssignError(
-      err.response?.data?.message || "Failed to load team members."
-    );
-  }
-};
+      setTeamMembers(members);
+    } catch (err) {
+      console.error("Failed to load team members:", err);
+      setAssignError(
+        err.response?.data?.message || "Failed to load team members."
+      );
+    }
+  };
 
 
 
   return (
     <div>
-      
-<div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-  <div>
-    <p className="mb-1 text-sm font-medium text-blue-600">
-      IT SUPPORT MANAGEMENT
-    </p>
 
-    <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-      Admin Dashboard
-    </h1>
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="mb-1 text-sm font-medium text-blue-600">
+            IT SUPPORT MANAGEMENT
+          </p>
 
-    <p className="mt-2 text-sm text-slate-500">
-      Monitor support tickets, manage assignments, and track team performance.
-    </p>
-  </div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+            Admin Dashboard
+          </h1>
 
-  <div className="flex items-center gap-2">
-    <span className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
-      <span className="h-2 w-2 rounded-full bg-green-500" />
-      Admin Workspace
-    </span>
-  </div>
-</div>
+          <p className="mt-2 text-sm text-slate-500">
+            Monitor support tickets, manage assignments, and track team performance.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
+            <span className="h-2 w-2 rounded-full bg-green-500" />
+            Admin Workspace
+          </span>
+        </div>
+      </div>
 
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-  <div className="rounded-xl bg-white p-5 shadow">
-    <p className="text-sm text-gray-500">Total Tickets</p>
-    <h2 className="mt-2 text-3xl font-bold">{stats.total}</h2>
-  </div>
+        <div className="rounded-xl bg-white p-5 shadow">
+          <p className="text-sm text-gray-500">Total Tickets</p>
+          <h2 className="mt-2 text-3xl font-bold">{stats.total}</h2>
+        </div>
 
-  <div className="rounded-xl bg-white p-5 shadow">
-    <p className="text-sm text-gray-500">Open Tickets</p>
-    <h2 className="mt-2 text-3xl font-bold text-blue-600">
-      {stats.open}
-    </h2>
-  </div>
+        <div className="rounded-xl bg-white p-5 shadow">
+          <p className="text-sm text-gray-500">Open Tickets</p>
+          <h2 className="mt-2 text-3xl font-bold text-blue-600">
+            {stats.open}
+          </h2>
+        </div>
 
-  <div className="rounded-xl bg-white p-5 shadow">
-    <p className="text-sm text-gray-500">In Progress</p>
-    <h2 className="mt-2 text-3xl font-bold text-amber-600">
-      {stats.inProgress}
-    </h2>
-  </div>
+        <div className="rounded-xl bg-white p-5 shadow">
+          <p className="text-sm text-gray-500">In Progress</p>
+          <h2 className="mt-2 text-3xl font-bold text-amber-600">
+            {stats.inProgress}
+          </h2>
+        </div>
 
-  <div className="rounded-xl bg-white p-5 shadow">
-    <p className="text-sm text-gray-500">Resolved Tickets</p>
-    <h2 className="mt-2 text-3xl font-bold text-green-600">
-      {stats.resolved}
-    </h2>
-  </div>
-</div>
+        <div className="rounded-xl bg-white p-5 shadow">
+          <p className="text-sm text-gray-500">Resolved Tickets</p>
+          <h2 className="mt-2 text-3xl font-bold text-green-600">
+            {stats.resolved}
+          </h2>
+        </div>
+      </div>
       {/* Management Modules Quick Links */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-8">
         <div
@@ -476,185 +476,185 @@ const handleTeamChange = async (e) => {
         <p className="mt-1 text-sm text-slate-500">
           Select a ticket, support team, and team member.
         </p>
-  
-<div className="mt-4">
-  <label
-    htmlFor="assignment-ticket-search"
-    className="mb-2 block text-sm font-medium text-slate-700"
-  >
-    Search ticket for assignment
-  </label>
 
-  <input
-    id="assignment-ticket-search"
-    type="text"
-    value={assignmentSearch}
-    onChange={(e) => setAssignmentSearch(e.target.value)}
-    placeholder="Enter ticket number or title..."
-    className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
-  />
+        <div className="mt-4">
+          <label
+            htmlFor="assignment-ticket-search"
+            className="mb-2 block text-sm font-medium text-slate-700"
+          >
+            Search ticket for assignment
+          </label>
 
-  {assignmentLoading && (
-    <p className="mt-2 text-sm text-blue-600">
-      Searching tickets...
-    </p>
-  )}
-</div>
+          <input
+            id="assignment-ticket-search"
+            type="text"
+            value={assignmentSearch}
+            onChange={(e) => setAssignmentSearch(e.target.value)}
+            placeholder="Enter ticket number or title..."
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
+          />
+
+          {assignmentLoading && (
+            <p className="mt-2 text-sm text-blue-600">
+              Searching tickets...
+            </p>
+          )}
+        </div>
 
 
-  {assignSuccess && (
-    <p className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">
-      {assignSuccess}
-    </p>
-  )}
+        {assignSuccess && (
+          <p className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">
+            {assignSuccess}
+          </p>
+        )}
 
-  {assignError && (
-    <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-      {assignError}
-    </p>
-  )}
+        {assignError && (
+          <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+            {assignError}
+          </p>
+        )}
 
-  <form
-    onSubmit={handleAssignTicket}
-    className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4"
-  >
-    <select
-      value={selectedTicket?.id || ""}
-      onChange={(e) => {
-        const ticket = assignmentTickets.find(
-          (item) => String(item.id) === e.target.value
-        );
+        <form
+          onSubmit={handleAssignTicket}
+          className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4"
+        >
+          <select
+            value={selectedTicket?.id || ""}
+            onChange={(e) => {
+              const ticket = assignmentTickets.find(
+                (item) => String(item.id) === e.target.value
+              );
 
-        setSelectedTicket(ticket || null);
-        setAssignError("");
-        setAssignSuccess("");
-      }}
-      className="rounded-lg border border-slate-300 px-3 py-2"
-      required
-    >
-      <option value="">Select ticket</option>
-      {assignmentTickets.map((ticket) => (
-        <option key={ticket.id} value={ticket.id}>
-          {ticket.ticket_number} — {ticket.title}
-        </option>
-      ))}
-    </select>
+              setSelectedTicket(ticket || null);
+              setAssignError("");
+              setAssignSuccess("");
+            }}
+            className="rounded-lg border border-slate-300 px-3 py-2"
+            required
+          >
+            <option value="">Select ticket</option>
+            {assignmentTickets.map((ticket) => (
+              <option key={ticket.id} value={ticket.id}>
+                {ticket.ticket_number} — {ticket.title}
+              </option>
+            ))}
+          </select>
 
-    <select
-      value={selectedTeam}
-      onChange={handleTeamChange}
-      className="rounded-lg border border-slate-300 px-3 py-2"
-      required
-    >
-      <option value="">Select team</option>
-      {teams.map((team) => (
-        <option key={team.id} value={team.id}>
-          {team.name}
-        </option>
-      ))}
-    </select>
+          <select
+            value={selectedTeam}
+            onChange={handleTeamChange}
+            className="rounded-lg border border-slate-300 px-3 py-2"
+            required
+          >
+            <option value="">Select team</option>
+            {teams.map((team) => (
+              <option key={team.id} value={team.id}>
+                {team.name}
+              </option>
+            ))}
+          </select>
 
-    <select
-      value={selectedAgent}
-      onChange={(e) => setSelectedAgent(e.target.value)}
-      className="rounded-lg border border-slate-300 px-3 py-2"
-      required
-      disabled={!selectedTeam || teamMembers.length === 0}
-    >
-      <option value="">Select support agent</option>
-      {teamMembers.map((member) => {
-        const agentId = member.user_id ?? member.id;
-        const agentName =
-          member.name ||
-          member.full_name ||
-          member.email ||
-          `Agent ${agentId}`;
+          <select
+            value={selectedAgent}
+            onChange={(e) => setSelectedAgent(e.target.value)}
+            className="rounded-lg border border-slate-300 px-3 py-2"
+            required
+            disabled={!selectedTeam || teamMembers.length === 0}
+          >
+            <option value="">Select support agent</option>
+            {teamMembers.map((member) => {
+              const agentId = member.user_id ?? member.id;
+              const agentName =
+                member.name ||
+                member.full_name ||
+                member.email ||
+                `Agent ${agentId}`;
 
-        return (
-          <option key={agentId} value={agentId}>
-            {agentName}
-          </option>
-        );
-      })}
-    </select>
+              return (
+                <option key={agentId} value={agentId}>
+                  {agentName}
+                </option>
+              );
+            })}
+          </select>
 
-    <button
-      type="submit"
-      disabled={assigning || !selectedTicket || !selectedTeam || !selectedAgent}
-      className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-    >
-      {assigning ? "Assigning..." : "Assign Ticket"}
-    </button>
-  </form>
-</div>
-   
-{/* Ticket Queue Section */}
-<div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-  <div className="mb-5">
-  {searching && (
-  <p className="mt-2 text-sm text-blue-600">
-    Searching tickets...
-  </p>
-)}
+          <button
+            type="submit"
+            disabled={assigning || !selectedTicket || !selectedTeam || !selectedAgent}
+            className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {assigning ? "Assigning..." : "Assign Ticket"}
+          </button>
+        </form>
+      </div>
 
-  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-    {/* Search */}
-    <input
-      type="text"
-      value={searchTerm}
-      onChange={(e) => setSearchTerm(e.target.value)}
-      placeholder="Search ticket number or title..."
-      className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-    />
+      {/* Ticket Queue Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="mb-5">
+          {searching && (
+            <p className="mt-2 text-sm text-blue-600">
+              Searching tickets...
+            </p>
+          )}
 
-    {/* Status filter */}
-    <select
-      value={statusFilter}
-      onChange={(e) => setStatusFilter(e.target.value)}
-      className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
-    >
-      <option value="ALL">All statuses</option>
-      <option value="OPEN">Open</option>
-      <option value="ASSIGNED">Assigned</option>
-      <option value="IN_PROGRESS">In Progress</option>
-      <option value="WAITING_FOR_USER">Waiting for User</option>
-      <option value="RESOLVED">Resolved</option>
-      <option value="CLOSED">Closed</option>
-      <option value="REOPENED">Reopened</option>
-    </select>
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+            {/* Search */}
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search ticket number or title..."
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
 
-    {/* Priority filter */}
-    <select
-      value={priorityFilter}
-      onChange={(e) => setPriorityFilter(e.target.value)}
-      className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
-    >
-      <option value="ALL">All priorities</option>
-      <option value="LOW">Low</option>
-      <option value="MEDIUM">Medium</option>
-      <option value="HIGH">High</option>
-      <option value="URGENT">Urgent</option>
-    </select>
-  </div>
+            {/* Status filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
+            >
+              <option value="ALL">All status</option>
+              <option value="OPEN">Open</option>
+              <option value="ASSIGNED">Assigned</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="WAITING_FOR_USER">Waiting for User</option>
+              <option value="RESOLVED">Resolved</option>
+              <option value="CLOSED">Closed</option>
+              <option value="REOPENED">Reopened</option>
+            </select>
 
-  <div className="mt-3 flex items-center justify-between">
-    <p className="text-sm text-slate-500">
-      Showing {tickets.length} of {pagination.total} tickets
-    </p>
+            {/* Priority filter */}
+            <select
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
+            >
+              <option value="ALL">All priorities</option>
+              <option value="LOW">Low</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HIGH">High</option>
+              <option value="URGENT">Urgent</option>
+            </select>
+          </div>
 
-    <button
-      type="button"
-      onClick={() => {
-        setSearchTerm("");
-        setStatusFilter("ALL");
-        setPriorityFilter("ALL");
-      }}
-      className="text-sm font-medium text-blue-600 hover:underline"
-    >
-      Clear filters
-    </button>
-  </div>
-</div>
+          <div className="mt-3 flex items-center justify-between">
+            <p className="text-sm text-slate-500">
+              Showing {tickets.length} of {pagination.total} tickets
+            </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm("");
+                setStatusFilter("ALL");
+                setPriorityFilter("ALL");
+              }}
+              className="text-sm font-medium text-blue-600 hover:underline"
+            >
+              Clear filters
+            </button>
+          </div>
+        </div>
 
 
         {loading ? (
@@ -662,24 +662,24 @@ const handleTeamChange = async (e) => {
         ) : error ? (
           <p className="text-red-600">{error}</p>
         ) : tickets.length === 0 ? (
-  <div className="py-10 text-center">
-    <p className="font-medium text-slate-700">
-      {debouncedSearch ||
-      statusFilter !== "ALL" ||
-      priorityFilter !== "ALL"
-        ? "No tickets match your search or filters."
-        : "No tickets have been created yet."}
-    </p>
+          <div className="py-10 text-center">
+            <p className="font-medium text-slate-700">
+              {debouncedSearch ||
+                statusFilter !== "ALL" ||
+                priorityFilter !== "ALL"
+                ? "No tickets match your search or filters."
+                : "No tickets have been created yet."}
+            </p>
 
-    <p className="mt-2 text-sm text-slate-500">
-      {debouncedSearch ||
-      statusFilter !== "ALL" ||
-      priorityFilter !== "ALL"
-        ? "Try changing your search or clearing the filters."
-        : "New tickets will appear here once employees submit them."}
-    </p>
-  </div>
-) : (
+            <p className="mt-2 text-sm text-slate-500">
+              {debouncedSearch ||
+                statusFilter !== "ALL" ||
+                priorityFilter !== "ALL"
+                ? "Try changing your search or clearing the filters."
+                : "New tickets will appear here once employees submit them."}
+            </p>
+          </div>
+        ) : (
           <>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
