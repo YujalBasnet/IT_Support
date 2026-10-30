@@ -10,9 +10,12 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 
+// In-memory cache for instant navigation without loading flashes
+let cachedUsers = null;
+
 export default function AdminUsers() {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState(() => cachedUsers || []);
+  const [loading, setLoading] = useState(() => !cachedUsers);
   const [error, setError] = useState("");
   const [message, setMessage] = useState({ type: "", text: "" });
 
@@ -37,12 +40,14 @@ export default function AdminUsers() {
     currentUser = null;
   }
 
-  const fetchUsers = async () => {
-    setLoading(true);
+  const fetchUsers = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     setError("");
     try {
       const { data } = await api.get("/users");
-      setUsers(Array.isArray(data.users) ? data.users : []);
+      const list = Array.isArray(data.users) ? data.users : [];
+      cachedUsers = list;
+      setUsers(list);
     } catch (err) {
       console.error("Failed to fetch users:", err);
       setError(err.response?.data?.message || "Failed to load system users.");
@@ -52,7 +57,7 @@ export default function AdminUsers() {
   };
 
   useEffect(() => {
-    fetchUsers();
+    fetchUsers(Boolean(cachedUsers));
   }, []);
 
   const handleRoleChange = async (e) => {
@@ -207,7 +212,7 @@ export default function AdminUsers() {
           </div>
           <div>
             <p className="text-xs font-semibold uppercase text-slate-400">Total Users</p>
-            <h2 className="text-2xl font-bold text-slate-900">{totalCount}</h2>
+            {loading && users.length === 0 ? <div className="h-7 w-12 bg-slate-100 rounded animate-pulse mt-1" /> : <h2 className="text-2xl font-bold text-slate-900">{totalCount}</h2>}
           </div>
         </div>
 
@@ -217,7 +222,7 @@ export default function AdminUsers() {
           </div>
           <div>
             <p className="text-xs font-semibold uppercase text-slate-400">Active Accounts</p>
-            <h2 className="text-2xl font-bold text-green-600">{activeCount}</h2>
+            {loading && users.length === 0 ? <div className="h-7 w-12 bg-slate-100 rounded animate-pulse mt-1" /> : <h2 className="text-2xl font-bold text-green-600">{activeCount}</h2>}
           </div>
         </div>
 
@@ -227,7 +232,7 @@ export default function AdminUsers() {
           </div>
           <div>
             <p className="text-xs font-semibold uppercase text-slate-400">Support Agents</p>
-            <h2 className="text-2xl font-bold text-purple-600">{agentCount}</h2>
+            {loading && users.length === 0 ? <div className="h-7 w-12 bg-slate-100 rounded animate-pulse mt-1" /> : <h2 className="text-2xl font-bold text-purple-600">{agentCount}</h2>}
           </div>
         </div>
 
@@ -237,7 +242,7 @@ export default function AdminUsers() {
           </div>
           <div>
             <p className="text-xs font-semibold uppercase text-slate-400">Administrators</p>
-            <h2 className="text-2xl font-bold text-rose-600">{adminCount}</h2>
+            {loading && users.length === 0 ? <div className="h-7 w-12 bg-slate-100 rounded animate-pulse mt-1" /> : <h2 className="text-2xl font-bold text-rose-600">{adminCount}</h2>}
           </div>
         </div>
       </div>
