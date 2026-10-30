@@ -13,9 +13,13 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 
+// In-memory cache for instant navigation without loading flashes
+let cachedAuditLogs = null;
+let cachedAuditPagination = null;
+
 export default function AdminAuditLogs() {
-  const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [logs, setLogs] = useState(() => cachedAuditLogs || []);
+  const [loading, setLoading] = useState(() => !cachedAuditLogs);
   const [error, setError] = useState("");
 
   // Filters & Pagination State
@@ -28,8 +32,8 @@ export default function AdminAuditLogs() {
 
   const limit = 15;
 
-  const fetchAuditLogs = async (currentPage = page) => {
-    setLoading(true);
+  const fetchAuditLogs = async (currentPage = page, isBackground = false) => {
+    if (!isBackground) setLoading(true);
     setError("");
 
     try {
@@ -43,8 +47,11 @@ export default function AdminAuditLogs() {
 
       const { data } = await api.get("/audit-logs", { params });
 
-      setLogs(Array.isArray(data.data) ? data.data : []);
+      const logList = Array.isArray(data.data) ? data.data : [];
+      cachedAuditLogs = logList;
+      setLogs(logList);
       if (data.pagination) {
+        cachedAuditPagination = data.pagination;
         setPage(data.pagination.page);
         setTotalPages(data.pagination.totalPages || 1);
         setTotalCount(data.pagination.total || 0);
