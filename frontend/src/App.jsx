@@ -7,7 +7,7 @@ import Login from "./components/form/Login.jsx";
 import Register from "./components/form/Register.jsx";
 import Layout from "./layout/layout.jsx";
 import AuthCallback from "./pages/AuthCallback.jsx";
-import ProtectedRoute from "./components/ProtectedRoute.jsx";
+import ProtectedRoute, { RoleRoute } from "./components/ProtectedRoute.jsx";
 import TicketDetails from "./pages/TicketDetails.jsx";
 import AdminUsers from "./pages/AdminUsers.jsx";
 import AdminTeams from "./pages/AdminTeams.jsx";
@@ -43,7 +43,7 @@ const router = createBrowserRouter([
                 children: [
                     // Employee-only routes
                     {
-                        element: <ProtectedRoute allowedRoles={[1]} />,
+                        element: <RoleRoute allowedRoles={[1]} />,
                         children: [
                             {
                                 path: "/employee",
@@ -54,7 +54,7 @@ const router = createBrowserRouter([
 
                     // Support Agent-only routes
                     {
-                        element: <ProtectedRoute allowedRoles={[2]} />,
+                        element: <RoleRoute allowedRoles={[2]} />,
                         children: [
                             {
                                 path: "/agent",
@@ -65,7 +65,7 @@ const router = createBrowserRouter([
 
                     // Admin-only routes
                     {
-                        element: <ProtectedRoute allowedRoles={[3]} />,
+                        element: <RoleRoute allowedRoles={[3]} />,
                         children: [
                             {
                                 path: "/admin",
