@@ -11,7 +11,6 @@ import {
   LogOut,
   Menu,
   X,
-  ExternalLink,
 } from "lucide-react";
 
 export default function Navbar() {
@@ -44,24 +43,24 @@ export default function Navbar() {
   const roleMeta = {
     1: {
       label: "Employee",
-      pill: "bg-blue-100 text-blue-700 border-blue-200",
+      pill: "bg-blue-900/60 text-blue-300 border-blue-700/60",
       dashLabel: "My Tickets",
     },
     2: {
       label: "Support Agent",
-      pill: "bg-purple-100 text-purple-700 border-purple-200",
+      pill: "bg-purple-900/60 text-purple-300 border-purple-700/60",
       dashLabel: "Assigned Queue",
     },
     3: {
       label: "Administrator",
-      pill: "bg-rose-100 text-rose-700 border-rose-200",
+      pill: "bg-rose-900/60 text-rose-300 border-rose-700/60",
       dashLabel: "Tickets Hub",
     },
   };
 
   const currentRole = roleMeta[roleId] || {
     label: "User",
-    pill: "bg-slate-100 text-slate-700 border-slate-200",
+    pill: "bg-slate-800 text-slate-300 border-slate-700",
     dashLabel: "Dashboard",
   };
 
@@ -69,18 +68,18 @@ export default function Navbar() {
     `flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition ${
       isActive
         ? "bg-blue-600 text-white shadow-xs font-semibold"
-        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+        : "text-slate-300 hover:text-white hover:bg-slate-800"
     }`;
 
   const mobileNavLinkClass = ({ isActive }) =>
     `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition ${
       isActive
         ? "bg-blue-600 text-white font-semibold"
-        : "text-slate-700 hover:bg-slate-100"
+        : "text-slate-300 hover:text-white hover:bg-slate-800"
     }`;
 
   return (
-    <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
+    <header className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-40 shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
           {/* Brand Logo */}
@@ -88,11 +87,11 @@ export default function Navbar() {
             to={dashboardPath}
             className="flex items-center gap-2.5 shrink-0 group"
           >
-            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs group-hover:bg-blue-700 transition">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs group-hover:bg-blue-500 transition">
               <Headphones size={22} />
             </div>
             <div>
-              <span className="font-bold text-slate-900 text-lg tracking-tight block leading-tight">
+              <span className="font-bold text-white text-lg tracking-tight block leading-tight">
                 IT Support
               </span>
               <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block">
@@ -142,22 +141,22 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-3 shrink-0">
             <Link
               to="/profile"
-              className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 transition group border border-transparent hover:border-slate-200"
+              className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-slate-800 transition group border border-transparent hover:border-slate-700"
               title="View your profile"
             >
               {user?.profile_image ? (
                 <img
                   src={user.profile_image}
                   alt={user.name || "User"}
-                  className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-200 group-hover:ring-blue-400 transition"
+                  className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-700 group-hover:ring-blue-400 transition"
                 />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center">
                   {user?.name?.charAt(0)?.toUpperCase() || "U"}
                 </div>
               )}
               <div className="text-left">
-                <p className="text-xs font-semibold text-slate-800 leading-tight group-hover:text-blue-600 transition">
+                <p className="text-xs font-semibold text-slate-200 leading-tight group-hover:text-blue-400 transition">
                   {user?.name || "User"}
                 </p>
                 <span
@@ -168,11 +167,11 @@ export default function Navbar() {
               </div>
             </Link>
 
-            <div className="h-6 w-px bg-slate-200" />
+            <div className="h-6 w-px bg-slate-800" />
 
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 border border-transparent hover:border-rose-900/40 transition cursor-pointer"
               title="Sign out"
             >
               <LogOut size={16} />
@@ -184,7 +183,7 @@ export default function Navbar() {
           <div className="flex md:hidden items-center gap-2">
             <Link
               to="/profile"
-              className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center overflow-hidden"
+              className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center overflow-hidden"
               title="Profile"
             >
               {user?.profile_image ? (
@@ -200,7 +199,7 @@ export default function Navbar() {
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-xl text-slate-600 hover:bg-slate-100 transition"
+              className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition"
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
@@ -211,26 +210,26 @@ export default function Navbar() {
 
       {/* Mobile Dropdown Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-5 space-y-2 shadow-lg animate-fadeIn">
+        <div className="md:hidden border-t border-slate-800 bg-slate-900 px-4 pt-3 pb-5 space-y-2 shadow-xl animate-fadeIn">
           {/* Mobile User Info Banner */}
-          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl mb-3 border border-slate-100">
+          <div className="flex items-center justify-between p-3 bg-slate-800/80 rounded-xl mb-3 border border-slate-700">
             <div className="flex items-center gap-3">
               {user?.profile_image ? (
                 <img
                   src={user.profile_image}
                   alt={user.name}
-                  className="w-10 h-10 rounded-full object-cover border border-slate-200"
+                  className="w-10 h-10 rounded-full object-cover border border-slate-700"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 font-bold text-sm flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center">
                   {user?.name?.charAt(0)?.toUpperCase() || "U"}
                 </div>
               )}
               <div>
-                <p className="text-sm font-bold text-slate-800">
+                <p className="text-sm font-bold text-white">
                   {user?.name || "User"}
                 </p>
-                <p className="text-xs text-slate-500">{user?.email}</p>
+                <p className="text-xs text-slate-400">{user?.email}</p>
               </div>
             </div>
             <span
@@ -301,10 +300,10 @@ export default function Navbar() {
             </NavLink>
           </div>
 
-          <div className="pt-3 border-t border-slate-200">
+          <div className="pt-3 border-t border-slate-800">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 transition cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-rose-400 bg-rose-950/40 hover:bg-rose-950/70 border border-rose-900/40 transition cursor-pointer"
             >
               <LogOut size={18} />
               <span>Sign Out</span>
@@ -315,4 +314,3 @@ export default function Navbar() {
     </header>
   );
 }
-
