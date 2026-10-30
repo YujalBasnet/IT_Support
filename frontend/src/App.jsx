@@ -34,77 +34,63 @@ const router = createBrowserRouter([
         element: <AuthCallback />,
     },
 
-    // Employee routes
+    // Authenticated App Shell: Layout & Navbar STAY MOUNTED across all page transitions!
     {
-        element: <ProtectedRoute allowedRoles={[1]} />,
+        element: <ProtectedRoute />,
         children: [
             {
                 element: <Layout />,
                 children: [
+                    // Employee-only routes
                     {
-                        path: "/employee",
-                        element: <EmployeeDashboard />,
+                        element: <ProtectedRoute allowedRoles={[1]} />,
+                        children: [
+                            {
+                                path: "/employee",
+                                element: <EmployeeDashboard />,
+                            },
+                        ],
                     },
-                ],
-            },
-        ],
-    },
 
-    // Support agent routes
-    {
-        element: <ProtectedRoute allowedRoles={[2]} />,
-        children: [
-            {
-                element: <Layout />,
-                children: [
+                    // Support Agent-only routes
                     {
-                        path: "/agent",
-                        element: <AgentDashboard />,
+                        element: <ProtectedRoute allowedRoles={[2]} />,
+                        children: [
+                            {
+                                path: "/agent",
+                                element: <AgentDashboard />,
+                            },
+                        ],
                     },
-                ],
-            },
-        ],
-    },
 
-    // Admin routes
-    {
-        element: <ProtectedRoute allowedRoles={[3]} />,
-        children: [
-            {
-                element: <Layout />,
-                children: [
+                    // Admin-only routes
                     {
-                        path: "/admin",
-                        element: <AdminDashboard />,
+                        element: <ProtectedRoute allowedRoles={[3]} />,
+                        children: [
+                            {
+                                path: "/admin",
+                                element: <AdminDashboard />,
+                            },
+                            {
+                                path: "/admin/users",
+                                element: <AdminUsers />,
+                            },
+                            {
+                                path: "/admin/teams",
+                                element: <AdminTeams />,
+                            },
+                            {
+                                path: "/admin/categories",
+                                element: <AdminCategories />,
+                            },
+                            {
+                                path: "/admin/audit-logs",
+                                element: <AdminAuditLogs />,
+                            },
+                        ],
                     },
-                    {
-                        path: "/admin/users",
-                        element: <AdminUsers />,
-                    },
-                    {
-                        path: "/admin/teams",
-                        element: <AdminTeams />,
-                    },
-                    {
-                        path: "/admin/categories",
-                        element: <AdminCategories />,
-                    },
-                    {
-                        path: "/admin/audit-logs",
-                        element: <AdminAuditLogs />,
-                    },
-                ],
-            },
-        ],
-    },
 
-    // Shared ticket details route (Employee, Agent, Admin)
-    {
-        element: <ProtectedRoute allowedRoles={[1, 2, 3]} />,
-        children: [
-            {
-                element: <Layout />,
-                children: [
+                    // Shared routes (all authenticated roles: Employee, Agent, Admin)
                     {
                         path: "/tickets/:id",
                         element: <TicketDetails />,
