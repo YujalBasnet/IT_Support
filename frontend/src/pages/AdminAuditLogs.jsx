@@ -23,9 +23,9 @@ export default function AdminAuditLogs() {
   const [error, setError] = useState("");
 
   // Filters & Pagination State
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(() => cachedAuditPagination?.page || 1);
+  const [totalPages, setTotalPages] = useState(() => cachedAuditPagination?.totalPages || 1);
+  const [totalCount, setTotalCount] = useState(() => cachedAuditPagination?.total || 0);
   const [actionFilter, setActionFilter] = useState("");
   const [resourceFilter, setResourceFilter] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -65,7 +65,8 @@ export default function AdminAuditLogs() {
   };
 
   useEffect(() => {
-    fetchAuditLogs(1);
+    const isBackground = Boolean(cachedAuditLogs && !actionFilter && !resourceFilter);
+    fetchAuditLogs(1, isBackground);
   }, [actionFilter, resourceFilter]);
 
   // Client-side text search filter across actor and action details
@@ -161,7 +162,11 @@ export default function AdminAuditLogs() {
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
               Total Recorded Events
             </p>
-            <p className="text-2xl font-black text-slate-900 mt-0.5">{totalCount}</p>
+            {loading && logs.length === 0 ? (
+              <div className="h-7 w-16 bg-slate-100 rounded animate-pulse mt-1" />
+            ) : (
+              <p className="text-2xl font-black text-slate-900 mt-0.5">{totalCount}</p>
+            )}
           </div>
         </div>
 
@@ -173,41 +178,42 @@ export default function AdminAuditLogs() {
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
               Current Page Records
             </p>
-            <p className="text-2xl font-black text-slate-900 mt-0.5">
-              {filteredLogs.length}
-            </p>
+            {loading && logs.length === 0 ? (
+              <div className="h-7 w-16 bg-slate-100 rounded animate-pulse mt-1" />
+            ) : (
+              <p className="text-2xl font-black text-slate-900 mt-0.5">
+                {filteredLogs.length}
+              </p>
+            )}
           </div>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
-            <Shield size={24} />
+          <div className="p-3 bg-purple-50 text-purple-600 rounded-xl">
+            <Clock size={24} />
           </div>
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              Audit Status
+              Audit Integrity
             </p>
-            <p className="text-sm font-bold text-emerald-600 mt-1 flex items-center gap-1.5">
+            <p className="text-sm font-bold text-slate-700 mt-1 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Active & Protected
+              Real-time Append-Only
             </p>
           </div>
         </div>
       </div>
 
-      {/* Search and Filters Bar */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col md:flex-row gap-3">
+      {/* Search & Filter Bar */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         <div className="relative flex-1">
-          <Search
-            size={18}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-          />
+          <Search className="absolute left-3.5 top-3 text-slate-400" size={18} />
           <input
             type="text"
-            placeholder="Search by actor, email, action, or change content..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+            placeholder="Search audit trail by actor, action, or payload..."
+            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
 
@@ -251,10 +257,16 @@ export default function AdminAuditLogs() {
 
       {/* Audit Log Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="py-20 text-center text-slate-500">
-            <Clock size={32} className="animate-spin mx-auto text-indigo-600 mb-3" />
-            <p className="text-sm font-medium">Loading audit history...</p>
+        {loading && logs.length === 0 ? (
+          <div className="p-6 space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-12 bg-slate-50 rounded-xl animate-pulse flex items-center px-4 gap-4">
+                <div className="h-4 bg-slate-200 rounded w-28" />
+                <div className="h-4 bg-slate-200 rounded w-36" />
+                <div className="h-6 bg-slate-200 rounded-full w-32" />
+                <div className="h-4 bg-slate-200 rounded w-1/3 ml-auto" />
+              </div>
+            ))}
           </div>
         ) : error ? (
           <div className="p-8 text-center text-red-600 text-sm">{error}</div>
@@ -298,11 +310,11 @@ export default function AdminAuditLogs() {
                           {log.actor_name ? log.actor_name.charAt(0).toUpperCase() : "S"}
                         </div>
                         <div>
-                          <p className="text-xs font-semibold text-slate-900">
+                          <p className="font-semibold text-slate-800 text-xs">
                             {log.actor_name || "System"}
                           </p>
                           <p className="text-[11px] text-slate-400">
-                            {log.actor_email || `ID: #${log.user_id || "N/A"}`}
+                            {log.actor_email || "system@itsupport.internal"}
                           </p>
                         </div>
                       </div>
@@ -311,31 +323,24 @@ export default function AdminAuditLogs() {
                     {/* Action */}
                     <td className="py-4 px-6 whitespace-nowrap">
                       <span
-                        className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-bold border ${getActionBadgeColor(
+                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${getActionBadgeColor(
                           log.action
                         )}`}
                       >
-                        {log.action.replace(/_/g, " ")}
+                        {log.action}
                       </span>
                     </td>
 
                     {/* Resource */}
-                    <td className="py-4 px-6 whitespace-nowrap text-xs">
-                      <span className="font-semibold text-slate-800">
-                        {log.resource_type}
+                    <td className="py-4 px-6 whitespace-nowrap text-xs text-slate-600 font-medium">
+                      <span className="font-mono bg-slate-100 px-2 py-1 rounded-md text-slate-700">
+                        {log.resource_type} #{log.resource_id}
                       </span>
-                      {log.resource_id && (
-                        <span className="text-slate-400 font-mono ml-1">
-                          #{log.resource_id}
-                        </span>
-                      )}
                     </td>
 
-                    {/* Changes */}
-                    <td className="py-4 px-6">
-                      <div className="max-w-md bg-slate-50 border border-slate-200/70 p-2.5 rounded-lg">
-                        {formatChanges(log.changes)}
-                      </div>
+                    {/* Details / Payload */}
+                    <td className="py-4 px-6 max-w-xs break-words">
+                      {formatChanges(log.changes)}
                     </td>
                   </tr>
                 ))}
