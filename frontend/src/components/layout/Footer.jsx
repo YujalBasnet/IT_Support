@@ -1,47 +1,47 @@
 import { Link } from "react-router-dom";
-import { Headphones, Shield, FileCode, Heart } from "lucide-react";
+import { Headphones, FileCode } from "lucide-react";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-white border-t border-slate-200 mt-auto text-slate-500 text-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <footer className="bg-slate-900 border-t border-slate-800 mt-auto text-slate-400 text-xs shadow-inner">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           {/* Left Brand & Copyright */}
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Headphones size={14} />
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/20 flex items-center justify-center">
+              <Headphones size={15} />
             </div>
-            <p className="font-medium text-slate-600">
-              © {currentYear} IT Service Desk & Support Management System. All rights reserved.
+            <p className="font-medium text-slate-400">
+              © {currentYear} <span className="text-slate-200 font-semibold">IT Service Desk</span> & Support Management System. All rights reserved.
             </p>
           </div>
 
           {/* Center Status Badge */}
-          <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full font-medium">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="flex items-center gap-2 px-3 py-1 bg-emerald-950/50 text-emerald-400 border border-emerald-800/60 rounded-full font-medium text-[11px] shadow-xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span>All Systems Operational</span>
           </div>
 
           {/* Right Links */}
-          <div className="flex items-center gap-4 text-slate-500">
+          <div className="flex items-center gap-4 text-slate-400">
             <a
               href="http://localhost:5000/api-docs"
               target="_blank"
               rel="noreferrer"
-              className="hover:text-blue-600 transition flex items-center gap-1 font-medium"
+              className="hover:text-blue-400 transition flex items-center gap-1.5 font-medium"
               title="Interactive OpenAPI 3.0 Documentation"
             >
-              <FileCode size={14} />
+              <FileCode size={14} className="text-slate-500 hover:text-blue-400" />
               <span>Swagger API Docs</span>
             </a>
 
-            <span className="text-slate-300">•</span>
+            <span className="text-slate-700">•</span>
 
             <Link
               to="/profile"
-              className="hover:text-blue-600 transition font-medium"
+              className="hover:text-blue-400 transition font-medium"
             >
               My Profile
             </Link>
@@ -51,4 +51,3 @@ export default function Footer() {
     </footer>
   );
 }
-
