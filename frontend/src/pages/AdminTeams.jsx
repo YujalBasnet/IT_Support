@@ -14,9 +14,12 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 
+// In-memory cache for instant navigation without loading flashes
+let cachedTeams = null;
+
 export default function AdminTeams() {
-  const [teams, setTeams] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [teams, setTeams] = useState(() => cachedTeams || []);
+  const [loading, setLoading] = useState(() => !cachedTeams);
   const [error, setError] = useState("");
   const [message, setMessage] = useState({ type: "", text: "" });
 
@@ -36,12 +39,14 @@ export default function AdminTeams() {
   const [rosterMessage, setRosterMessage] = useState({ type: "", text: "" });
 
   // Fetch all support teams
-  const fetchTeams = async () => {
-    setLoading(true);
+  const fetchTeams = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     setError("");
     try {
       const { data } = await api.get("/teams");
-      setTeams(Array.isArray(data.teams) ? data.teams : []);
+      const list = Array.isArray(data.teams) ? data.teams : [];
+      cachedTeams = list;
+      setTeams(list);
     } catch (err) {
       console.error("Failed to fetch teams:", err);
       setError(err.response?.data?.message || "Failed to load support teams.");
@@ -51,7 +56,7 @@ export default function AdminTeams() {
   };
 
   useEffect(() => {
-    fetchTeams();
+    fetchTeams(Boolean(cachedTeams));
   }, []);
 
   // Open Create Modal

@@ -14,7 +14,8 @@ const roleIds = {
   ADMIN: 3,
 };
 
-export default function ProtectedRoute({ allowedRoles }) {
+// Top-level authentication verification
+export default function ProtectedRoute() {
   const [session, setSession] = useState(() => {
     const token = localStorage.getItem("token");
     let cachedUser = null;
@@ -25,7 +26,6 @@ export default function ProtectedRoute({ allowedRoles }) {
     }
 
     return {
-      // If we already have token and user cached, render immediately without blocking screen
       loading: Boolean(token && !cachedUser),
       user: token ? cachedUser : null,
     };
@@ -61,7 +61,6 @@ export default function ProtectedRoute({ allowedRoles }) {
           });
         }
       } catch (error) {
-        // Clear credentials only for authentication failures
         if ([401, 403].includes(error.response?.status)) {
           localStorage.removeItem("token");
           localStorage.removeItem("user");
@@ -98,11 +97,26 @@ export default function ProtectedRoute({ allowedRoles }) {
     return <Navigate to="/login" replace />;
   }
 
-  // If allowedRoles is specified, verify permission
-  if (Array.isArray(allowedRoles) && allowedRoles.length > 0) {
-    const role = String(session.user.role).toUpperCase();
-    const roleId = Number(session.user.role_id) || roleIds[role];
+  return <Outlet />;
+}
 
+// Synchronous, zero-latency role verification without network requests or loading states
+export function RoleRoute({ allowedRoles }) {
+  let user = null;
+  try {
+    user = JSON.parse(localStorage.getItem("user"));
+  } catch {
+    user = null;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const role = String(user.role).toUpperCase();
+  const roleId = Number(user.role_id) || roleIds[role];
+
+  if (Array.isArray(allowedRoles) && allowedRoles.length > 0) {
     if (!allowedRoles.includes(roleId)) {
       return (
         <Navigate
