@@ -12,6 +12,10 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 
+// Module-level cache to make page transitions instantaneous
+let cachedAgentTickets = null;
+let cachedAgentPagination = null;
+
 export default function AgentDashboard() {
   const navigate = useNavigate();
 
@@ -22,15 +26,15 @@ export default function AgentDashboard() {
     user = null;
   }
 
-  const [tickets, setTickets] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [tickets, setTickets] = useState(() => cachedAgentTickets || []);
+  const [loading, setLoading] = useState(() => !cachedAgentTickets);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [priorityFilter, setPriorityFilter] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pagination, setPagination] = useState({
+  const [pagination, setPagination] = useState(() => cachedAgentPagination || {
     page: 1,
     limit: 10,
     total: 0,
@@ -53,8 +57,10 @@ export default function AgentDashboard() {
   }, [statusFilter, priorityFilter]);
 
   // Fetch tickets assigned to this agent
-  const fetchAssignedTickets = async () => {
-    setLoading(true);
+  const fetchAssignedTickets = async (isBackground = false) => {
+    if (!isBackground && tickets.length === 0) {
+      setLoading(true);
+    }
     setError("");
 
     try {
@@ -78,35 +84,36 @@ export default function AgentDashboard() {
             ? data
             : [];
 
+      const newPagination = data.pagination || {
+        page: currentPage,
+        limit: 10,
+        total: ticketList.length,
+        totalPages: Math.ceil(ticketList.length / 10) || 1,
+      };
+
       setTickets(ticketList);
-      setPagination(
-        data.pagination || {
-          page: currentPage,
-          limit: 10,
-          total: ticketList.length,
-          totalPages: Math.ceil(ticketList.length / 10) || 1,
-        }
-      );
+      setPagination(newPagination);
+      cachedAgentTickets = ticketList;
+      cachedAgentPagination = newPagination;
     } catch (err) {
       console.error("Failed to load agent tickets:", err);
       setError(
         err.response?.data?.message || "Failed to load assigned support tickets."
       );
-      setTickets([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAssignedTickets();
+    fetchAssignedTickets(Boolean(cachedAgentTickets));
   }, [currentPage, debouncedSearch, statusFilter, priorityFilter]);
 
   // Handle quick status update directly from table if needed
   const handleQuickStatusChange = async (ticketId, newStatus) => {
     try {
       await api.patch(`/tickets/${ticketId}/status`, { status: newStatus });
-      fetchAssignedTickets();
+      fetchAssignedTickets(false);
     } catch (err) {
       alert(err.response?.data?.message || "Failed to update ticket status.");
     }
@@ -139,6 +146,7 @@ export default function AgentDashboard() {
   };
 
   // Stats computation
+  const isInitialLoading = loading && tickets.length === 0;
   const totalAssigned = pagination.total || tickets.length;
   const inProgressCount = tickets.filter((t) => t.status === "IN_PROGRESS").length;
   const waitingCount = tickets.filter((t) => t.status === "WAITING_FOR_USER").length;
@@ -178,7 +186,13 @@ export default function AgentDashboard() {
           </div>
           <div>
             <p className="text-xs font-medium text-slate-500 uppercase">Assigned To Me</p>
-            <h2 className="text-2xl font-bold text-slate-900">{totalAssigned}</h2>
+            <h2 className="text-2xl font-bold text-slate-900">
+              {isInitialLoading ? (
+                <span className="inline-block w-8 h-7 bg-slate-200 animate-pulse rounded" />
+              ) : (
+                totalAssigned
+              )}
+            </h2>
           </div>
         </div>
 
@@ -188,7 +202,13 @@ export default function AgentDashboard() {
           </div>
           <div>
             <p className="text-xs font-medium text-slate-500 uppercase">In Progress</p>
-            <h2 className="text-2xl font-bold text-amber-600">{inProgressCount}</h2>
+            <h2 className="text-2xl font-bold text-amber-600">
+              {isInitialLoading ? (
+                <span className="inline-block w-8 h-7 bg-amber-100 animate-pulse rounded" />
+              ) : (
+                inProgressCount
+              )}
+            </h2>
           </div>
         </div>
 
@@ -198,7 +218,13 @@ export default function AgentDashboard() {
           </div>
           <div>
             <p className="text-xs font-medium text-slate-500 uppercase">Waiting For User</p>
-            <h2 className="text-2xl font-bold text-orange-600">{waitingCount}</h2>
+            <h2 className="text-2xl font-bold text-orange-600">
+              {isInitialLoading ? (
+                <span className="inline-block w-8 h-7 bg-orange-100 animate-pulse rounded" />
+              ) : (
+                waitingCount
+              )}
+            </h2>
           </div>
         </div>
 
@@ -208,7 +234,13 @@ export default function AgentDashboard() {
           </div>
           <div>
             <p className="text-xs font-medium text-slate-500 uppercase">Resolved / Closed</p>
-            <h2 className="text-2xl font-bold text-green-600">{resolvedCount}</h2>
+            <h2 className="text-2xl font-bold text-green-600">
+              {isInitialLoading ? (
+                <span className="inline-block w-8 h-7 bg-green-100 animate-pulse rounded" />
+              ) : (
+                resolvedCount
+              )}
+            </h2>
           </div>
         </div>
       </div>
@@ -224,10 +256,10 @@ export default function AgentDashboard() {
           </div>
 
           <button
-            onClick={fetchAssignedTickets}
+            onClick={() => fetchAssignedTickets(false)}
             className="flex items-center gap-2 text-sm text-slate-600 hover:text-purple-600 font-medium transition cursor-pointer self-start sm:self-auto"
           >
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+            <RefreshCw size={16} className={loading ? "animate-spin text-purple-600" : ""} />
             Refresh Queue
           </button>
         </div>
@@ -280,10 +312,44 @@ export default function AgentDashboard() {
         )}
 
         {/* Table Content */}
-        {loading ? (
-          <div className="py-16 text-center text-slate-500">
-            <RefreshCw size={24} className="animate-spin mx-auto mb-2 text-purple-600" />
-            <p className="text-sm">Loading assigned tickets...</p>
+        {isInitialLoading ? (
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-500 font-medium">
+                  <th className="py-3 px-2">Ticket #</th>
+                  <th className="py-3 px-2">Title</th>
+                  <th className="py-3 px-2">Priority</th>
+                  <th className="py-3 px-2">Status</th>
+                  <th className="py-3 px-2">Quick Action</th>
+                  <th className="py-3 px-2 text-right">Details</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 animate-pulse">
+                {[1, 2, 3, 4, 5].map((idx) => (
+                  <tr key={idx} className="border-b border-slate-100">
+                    <td className="py-3.5 px-2">
+                      <div className="h-4 bg-slate-200 rounded w-20" />
+                    </td>
+                    <td className="py-3.5 px-2">
+                      <div className="h-4 bg-slate-200 rounded w-48" />
+                    </td>
+                    <td className="py-3.5 px-2">
+                      <div className="h-5 bg-slate-200 rounded-full w-16" />
+                    </td>
+                    <td className="py-3.5 px-2">
+                      <div className="h-5 bg-slate-200 rounded-full w-20" />
+                    </td>
+                    <td className="py-3.5 px-2">
+                      <div className="h-6 bg-slate-200 rounded w-20" />
+                    </td>
+                    <td className="py-3.5 px-2 text-right">
+                      <div className="h-4 bg-slate-200 rounded w-12 ml-auto" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : tickets.length === 0 ? (
           <div className="py-16 text-center">
