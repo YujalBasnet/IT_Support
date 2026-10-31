@@ -3,14 +3,20 @@ import { useNavigate } from "react-router-dom";
 import { Users, Users2, Tag, ArrowRight } from "lucide-react";
 import api from "../services/api";
 
-export default function AdminDashboard() {
+// Module-level cache to make page transitions instantaneous
+let cachedAdminStats = null;
+let cachedAdminTickets = null;
+let cachedAdminPagination = null;
+let cachedAdminTeams = null;
 
-  const [tickets, setTickets] = useState([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+export default function AdminDashboard() {
   const navigate = useNavigate();
 
-  const [stats, setStats] = useState({
+  const [tickets, setTickets] = useState(() => cachedAdminTickets || []);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(() => !cachedAdminTickets);
+
+  const [stats, setStats] = useState(() => cachedAdminStats || {
     total: 0,
     open: 0,
     inProgress: 0,
@@ -22,21 +28,19 @@ export default function AdminDashboard() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [priorityFilter, setPriorityFilter] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pagination, setPagination] = useState({
+  const [pagination, setPagination] = useState(() => cachedAdminPagination || {
     page: 1,
     limit: 5,
     total: 0,
     totalPages: 0,
   });
 
-  const [teams, setTeams] = useState([]);
+  const [teams, setTeams] = useState(() => cachedAdminTeams || []);
 
   const [assignmentTickets, setAssignmentTickets] = useState([]);
   const [assignmentSearch, setAssignmentSearch] = useState("");
   const [debouncedAssignmentSearch, setDebouncedAssignmentSearch] = useState("");
   const [assignmentLoading, setAssignmentLoading] = useState(false);
-
-
 
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [selectedTeam, setSelectedTeam] = useState("");
@@ -46,26 +50,28 @@ export default function AdminDashboard() {
   const [assignError, setAssignError] = useState("");
   const [assignSuccess, setAssignSuccess] = useState("");
   const [searching, setSearching] = useState(false);
+
   useEffect(() => {
     const timer = setTimeout(() => {
-      console.log("Debounced search term:", searchTerm);
       setDebouncedSearch(searchTerm);
-    }, 900);
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedSearch, statusFilter, priorityFilter]);
+
   useEffect(() => {
     const controller = new AbortController();
     const fetchTickets = async () => {
+      if (tickets.length === 0) {
+        setLoading(true);
+      }
       setSearching(true);
       setError("");
       try {
-
         const { data } = await api.get("/tickets", {
           params: {
             page: currentPage,
@@ -77,11 +83,6 @@ export default function AdminDashboard() {
           signal: controller.signal,
         });
 
-
-        // const { data: statsData } = await api.get("/tickets/stats");
-        // setStats(statsData);
-
-        // Support common paginated response formats.
         const ticketList = Array.isArray(data)
           ? data
           : Array.isArray(data.data)
@@ -94,15 +95,17 @@ export default function AdminDashboard() {
           throw new Error("Unexpected tickets response format");
         }
 
+        const newPagination = data.pagination || {
+          page: currentPage,
+          limit: 5,
+          total: ticketList.length,
+          totalPages: Math.ceil(ticketList.length / 5) || 1,
+        };
+
         setTickets(ticketList);
-        setPagination(
-          data.pagination || {
-            page: currentPage,
-            limit: 5,
-            total: ticketList.length,
-            totalPages: 1,
-          }
-        );
+        setPagination(newPagination);
+        cachedAdminTickets = ticketList;
+        cachedAdminPagination = newPagination;
       } catch (err) {
         if (err.code === "ERR_CANCELED") return;
 
@@ -113,14 +116,11 @@ export default function AdminDashboard() {
           err.message ||
           "Failed to load tickets"
         );
-
-        setTickets([]);
       } finally {
         if (!controller.signal.aborted) {
           setSearching(false);
           setLoading(false);
         }
-
       }
     };
 
@@ -131,11 +131,7 @@ export default function AdminDashboard() {
     };
   }, [currentPage, debouncedSearch, statusFilter, priorityFilter]);
 
-
-
-
-
-  // NEW: Fetch dashboard statistics separately
+  // Fetch dashboard statistics separately
   useEffect(() => {
     const controller = new AbortController();
 
@@ -145,6 +141,7 @@ export default function AdminDashboard() {
           signal: controller.signal,
         });
 
+        cachedAdminStats = data;
         setStats(data);
       } catch (err) {
         if (err.code === "ERR_CANCELED") return;
@@ -157,11 +154,6 @@ export default function AdminDashboard() {
 
     return () => controller.abort();
   }, []);
-
-
-
-
-
 
   const getStatusStyle = (status) => {
     const styles = {
@@ -190,13 +182,13 @@ export default function AdminDashboard() {
 
   const filteredTickets = tickets;
 
-
-
   useEffect(() => {
     const fetchTeams = async () => {
       try {
         const { data } = await api.get("/teams");
-        setTeams(Array.isArray(data.teams) ? data.teams : []);
+        const teamList = Array.isArray(data.teams) ? data.teams : [];
+        cachedAdminTeams = teamList;
+        setTeams(teamList);
       } catch (err) {
         console.error("Failed to load teams:", err);
         setAssignError(
@@ -208,7 +200,6 @@ export default function AdminDashboard() {
     fetchTeams();
   }, []);
 
-
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedAssignmentSearch(assignmentSearch.trim());
@@ -216,7 +207,6 @@ export default function AdminDashboard() {
 
     return () => clearTimeout(timer);
   }, [assignmentSearch]);
-
 
   useEffect(() => {
     const controller = new AbortController();
@@ -259,8 +249,6 @@ export default function AdminDashboard() {
 
     return () => controller.abort();
   }, [debouncedAssignmentSearch]);
-
-
 
   const handleAssignTicket = async (e) => {
     e.preventDefault();
@@ -308,17 +296,20 @@ export default function AdminDashboard() {
             ? data
             : [];
 
+      const newPagination = data.pagination || {
+        page: currentPage,
+        limit: 5,
+        total: ticketList.length,
+        totalPages: 1,
+      };
+
       setTickets(ticketList);
-      setPagination(
-        data.pagination || {
-          page: currentPage,
-          limit: 5,
-          total: ticketList.length,
-          totalPages: 1,
-        }
-      );
+      setPagination(newPagination);
+      cachedAdminTickets = ticketList;
+      cachedAdminPagination = newPagination;
 
       const { data: statsData } = await api.get("/tickets/stats");
+      cachedAdminStats = statsData;
       setStats(statsData);
     } catch (err) {
       console.error("Failed to assign ticket:", err);
@@ -329,7 +320,6 @@ export default function AdminDashboard() {
       setAssigning(false);
     }
   };
-
 
   const handleTeamChange = async (e) => {
     const teamId = e.target.value;
@@ -344,7 +334,6 @@ export default function AdminDashboard() {
     try {
       const { data } = await api.get(`/teams/${teamId}/members`);
 
-      // Supports common response shapes.
       const members = Array.isArray(data.members)
         ? data.members
         : Array.isArray(data.teamMembers)
@@ -360,11 +349,11 @@ export default function AdminDashboard() {
     }
   };
 
-
+  const isStatsLoading = !cachedAdminStats;
+  const isInitialTicketsLoading = loading && tickets.length === 0;
 
   return (
     <div>
-
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="mb-1 text-sm font-medium text-blue-600">
@@ -388,34 +377,52 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        <div className="rounded-xl bg-white p-5 shadow">
+        <div className="rounded-xl bg-white p-5 shadow border border-slate-200">
           <p className="text-sm text-gray-500">Total Tickets</p>
-          <h2 className="mt-2 text-3xl font-bold">{stats.total}</h2>
+          <h2 className="mt-2 text-3xl font-bold">
+            {isStatsLoading ? (
+              <span className="inline-block w-12 h-8 bg-slate-200 animate-pulse rounded" />
+            ) : (
+              stats.total
+            )}
+          </h2>
         </div>
 
-        <div className="rounded-xl bg-white p-5 shadow">
+        <div className="rounded-xl bg-white p-5 shadow border border-slate-200">
           <p className="text-sm text-gray-500">Open Tickets</p>
           <h2 className="mt-2 text-3xl font-bold text-blue-600">
-            {stats.open}
+            {isStatsLoading ? (
+              <span className="inline-block w-12 h-8 bg-blue-100 animate-pulse rounded" />
+            ) : (
+              stats.open
+            )}
           </h2>
         </div>
 
-        <div className="rounded-xl bg-white p-5 shadow">
+        <div className="rounded-xl bg-white p-5 shadow border border-slate-200">
           <p className="text-sm text-gray-500">In Progress</p>
           <h2 className="mt-2 text-3xl font-bold text-amber-600">
-            {stats.inProgress}
+            {isStatsLoading ? (
+              <span className="inline-block w-12 h-8 bg-amber-100 animate-pulse rounded" />
+            ) : (
+              stats.inProgress
+            )}
           </h2>
         </div>
 
-        <div className="rounded-xl bg-white p-5 shadow">
+        <div className="rounded-xl bg-white p-5 shadow border border-slate-200">
           <p className="text-sm text-gray-500">Resolved Tickets</p>
           <h2 className="mt-2 text-3xl font-bold text-green-600">
-            {stats.resolved}
+            {isStatsLoading ? (
+              <span className="inline-block w-12 h-8 bg-green-100 animate-pulse rounded" />
+            ) : (
+              stats.resolved
+            )}
           </h2>
         </div>
       </div>
+
       {/* Management Modules Quick Links */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-8">
         <div
@@ -500,7 +507,6 @@ export default function AdminDashboard() {
             </p>
           )}
         </div>
-
 
         {assignSuccess && (
           <p className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">
@@ -656,9 +662,37 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-
-        {loading ? (
-          <p>Loading tickets...</p>
+        {isInitialTicketsLoading ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b text-slate-500 text-sm">
+                  <th className="py-3">Ticket Number</th>
+                  <th className="py-3">Title</th>
+                  <th className="py-3">Status</th>
+                  <th className="py-3">Priority</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 animate-pulse">
+                {[1, 2, 3, 4, 5].map((idx) => (
+                  <tr key={idx} className="border-b border-slate-100">
+                    <td className="py-4">
+                      <div className="h-4 bg-slate-200 rounded w-24" />
+                    </td>
+                    <td className="py-4">
+                      <div className="h-4 bg-slate-200 rounded w-52" />
+                    </td>
+                    <td className="py-4">
+                      <div className="h-5 bg-slate-200 rounded-full w-20" />
+                    </td>
+                    <td className="py-4">
+                      <div className="h-5 bg-slate-200 rounded-full w-16" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : error ? (
           <p className="text-red-600">{error}</p>
         ) : tickets.length === 0 ? (
@@ -693,47 +727,39 @@ export default function AdminDashboard() {
                 </thead>
 
                 <tbody>
-                  {tickets.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="py-8 text-center text-slate-500">
-                        No tickets match your search or filters.
+                  {filteredTickets.map((ticket) => (
+                    <tr
+                      key={ticket.id}
+                      onClick={() => navigate(`/tickets/${ticket.id}`)}
+                      className="border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors"
+                    >
+                      <td className="py-4 font-medium text-blue-600">
+                        {ticket.ticket_number}
+                      </td>
+
+                      <td className="py-4 text-slate-800">{ticket.title}</td>
+
+                      <td className="py-4">
+                        <span
+                          className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(
+                            ticket.status
+                          )}`}
+                        >
+                          {(ticket.status || "").replace(/_/g, " ")}
+                        </span>
+                      </td>
+
+                      <td className="py-4">
+                        <span
+                          className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${getPriorityStyle(
+                            ticket.priority
+                          )}`}
+                        >
+                          {ticket.priority}
+                        </span>
                       </td>
                     </tr>
-                  ) : (
-                    filteredTickets.map((ticket) => (
-                      <tr
-                        key={ticket.id}
-                        onClick={() => navigate(`/tickets/${ticket.id}`)}
-                        className="border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors"
-                      >
-                        <td className="py-4 font-medium text-blue-600">
-                          {ticket.ticket_number}
-                        </td>
-
-                        <td className="py-4 text-slate-800">{ticket.title}</td>
-
-                        <td className="py-4">
-                          <span
-                            className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(
-                              ticket.status
-                            )}`}
-                          >
-                            {(ticket.status || "").replace(/_/g, " ")}
-                          </span>
-                        </td>
-
-                        <td className="py-4">
-                          <span
-                            className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${getPriorityStyle(
-                              ticket.priority
-                            )}`}
-                          >
-                            {ticket.priority}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
