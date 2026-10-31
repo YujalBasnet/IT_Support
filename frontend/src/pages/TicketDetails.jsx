@@ -19,6 +19,12 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 
+// Module-level caches to make navigating into and back from ticket details instantaneous
+const ticketCache = new Map();
+const commentsCache = new Map();
+const attachmentsCache = new Map();
+const historyCache = new Map();
+
 export default function TicketDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -41,9 +47,9 @@ export default function TicketDetails() {
   };
   const backPath = dashboardPaths[currentRoleId] || "/login";
 
-  // Ticket Data States
-  const [ticket, setTicket] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Ticket Data States initialized from cache
+  const [ticket, setTicket] = useState(() => ticketCache.get(id) || null);
+  const [loading, setLoading] = useState(() => !ticketCache.has(id));
   const [error, setError] = useState("");
 
   // Status Update State
@@ -51,20 +57,20 @@ export default function TicketDetails() {
   const [statusMessage, setStatusMessage] = useState({ type: "", text: "" });
 
   // Comments State
-  const [comments, setComments] = useState([]);
+  const [comments, setComments] = useState(() => commentsCache.get(id) || []);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [isInternalComment, setIsInternalComment] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
 
   // Attachments State
-  const [attachments, setAttachments] = useState([]);
+  const [attachments, setAttachments] = useState(() => attachmentsCache.get(id) || []);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [attachmentError, setAttachmentError] = useState("");
 
   // History State
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] = useState(() => historyCache.get(id) || []);
   const [historyLoading, setHistoryLoading] = useState(false);
 
   // Active Tab: comments | attachments | history
@@ -74,7 +80,9 @@ export default function TicketDetails() {
   const fetchTicket = async () => {
     try {
       const { data } = await api.get(`/tickets/${id}`);
-      setTicket(data.ticket ?? data.data ?? data);
+      const t = data.ticket ?? data.data ?? data;
+      ticketCache.set(id, t);
+      setTicket(t);
     } catch (err) {
       console.error("Failed to load ticket:", err);
       setError(
@@ -90,7 +98,9 @@ export default function TicketDetails() {
     setCommentsLoading(true);
     try {
       const { data } = await api.get(`/tickets/${id}/comments`);
-      setComments(Array.isArray(data.comments) ? data.comments : []);
+      const list = Array.isArray(data.comments) ? data.comments : [];
+      commentsCache.set(id, list);
+      setComments(list);
     } catch (err) {
       console.error("Failed to load comments:", err);
     } finally {
@@ -103,7 +113,9 @@ export default function TicketDetails() {
     setAttachmentsLoading(true);
     try {
       const { data } = await api.get(`/attachments/tickets/${id}/attachments`);
-      setAttachments(Array.isArray(data.attachments) ? data.attachments : []);
+      const list = Array.isArray(data.attachments) ? data.attachments : [];
+      attachmentsCache.set(id, list);
+      setAttachments(list);
     } catch (err) {
       console.error("Failed to load attachments:", err);
     } finally {
@@ -116,7 +128,9 @@ export default function TicketDetails() {
     setHistoryLoading(true);
     try {
       const { data } = await api.get(`/tickets/${id}/history`);
-      setHistory(Array.isArray(data.history) ? data.history : []);
+      const list = Array.isArray(data.history) ? data.history : [];
+      historyCache.set(id, list);
+      setHistory(list);
     } catch (err) {
       console.error("Failed to load ticket history:", err);
     } finally {
@@ -125,6 +139,17 @@ export default function TicketDetails() {
   };
 
   useEffect(() => {
+    const cached = ticketCache.get(id);
+    if (cached) {
+      setTicket(cached);
+      setComments(commentsCache.get(id) || []);
+      setAttachments(attachmentsCache.get(id) || []);
+      setHistory(historyCache.get(id) || []);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     fetchTicket();
     fetchComments();
     fetchAttachments();
@@ -296,11 +321,34 @@ export default function TicketDetails() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   };
 
-  if (loading) {
+  if (loading && !ticket) {
     return (
-      <div className="py-20 text-center text-slate-500">
-        <Clock size={32} className="animate-spin mx-auto text-blue-600 mb-3" />
-        <p className="text-sm font-medium">Loading ticket details...</p>
+      <div className="mx-auto max-w-6xl pb-12 animate-pulse space-y-6">
+        <div className="h-6 bg-slate-200 rounded w-36 mb-6" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-8 space-y-6">
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+              <div className="h-4 bg-slate-200 rounded w-28" />
+              <div className="h-7 bg-slate-200 rounded w-2/3" />
+              <div className="space-y-2 pt-4 border-t border-slate-100">
+                <div className="h-4 bg-slate-200 rounded w-full" />
+                <div className="h-4 bg-slate-200 rounded w-5/6" />
+                <div className="h-4 bg-slate-200 rounded w-4/6" />
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+              <div className="h-8 bg-slate-200 rounded w-1/3" />
+              <div className="h-20 bg-slate-100 rounded" />
+            </div>
+          </div>
+          <div className="lg:col-span-4 space-y-6">
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+              <div className="h-5 bg-slate-200 rounded w-1/2" />
+              <div className="h-8 bg-slate-200 rounded w-full" />
+              <div className="h-8 bg-slate-200 rounded w-full" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
