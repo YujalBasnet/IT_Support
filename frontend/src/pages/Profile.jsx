@@ -17,18 +17,24 @@ import {
   KeyRound,
 } from "lucide-react";
 
+// Module-level cache to make page transitions instantaneous
+let cachedProfileData = null;
+
 export default function Profile() {
   const navigate = useNavigate();
-  const [profileData, setProfileData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [profileData, setProfileData] = useState(() => cachedProfileData);
+  const [loading, setLoading] = useState(() => !cachedProfileData);
   const [error, setError] = useState("");
 
-  const fetchProfile = async () => {
+  const fetchProfile = async (isBackground = false) => {
     try {
-      setLoading(true);
+      if (!isBackground && !profileData) {
+        setLoading(true);
+      }
       setError("");
       // Dual mounted endpoint: /api/auth/me or /auth/me
       const res = await api.get("/auth/me");
+      cachedProfileData = res.data;
       setProfileData(res.data);
     } catch (err) {
       console.error("Failed to load profile:", err);
@@ -37,20 +43,17 @@ export default function Profile() {
         "Failed to load user profile. Please verify your connection."
       );
     } finally {
-
-
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchProfile();
+    fetchProfile(Boolean(cachedProfileData));
   }, []);
 
   const user = profileData?.user;
   const stats = profileData?.stats;
   const roleId = Number(user?.role_id);
-
 
   const roleMeta = {
     1: {
@@ -100,7 +103,7 @@ export default function Profile() {
       });
   };
 
-  if (loading) {
+  if (loading && !profileData) {
     return (
       <div className="max-w-5xl mx-auto space-y-6 animate-pulse">
         <div className="h-44 bg-white rounded-2xl border border-slate-200 p-6 flex items-center gap-6">
@@ -121,7 +124,7 @@ export default function Profile() {
     );
   }
 
-  if (error) {
+  if (error && !profileData) {
     return (
       <div className="max-w-2xl mx-auto my-12 bg-white rounded-2xl p-8 border border-red-200 text-center shadow-sm">
         <div className="w-14 h-14 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -131,7 +134,7 @@ export default function Profile() {
         <p className="text-slate-600 mb-6">{error}</p>
         <div className="flex justify-center gap-3">
           <button
-            onClick={fetchProfile}
+            onClick={() => fetchProfile(false)}
             className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition"
           >
             <RefreshCw size={18} />
@@ -162,11 +165,11 @@ export default function Profile() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={fetchProfile}
+            onClick={() => fetchProfile(false)}
             title="Refresh profile details"
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition shadow-xs"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition shadow-xs cursor-pointer"
           >
-            <RefreshCw size={16} />
+            <RefreshCw size={16} className={loading ? "animate-spin text-blue-600" : ""} />
             Refresh
           </button>
           <Link
@@ -413,8 +416,6 @@ export default function Profile() {
             </div>
           </div>
         </div>
-
-
       </div>
     </div>
   );
