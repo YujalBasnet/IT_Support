@@ -1,8 +1,16 @@
 import { Outlet } from "react-router-dom";
+import { useEffect } from "react";
 import Navbar from "../components/layout/Navbar.jsx";
 import Footer from "../components/layout/Footer.jsx";
 
 export default function Layout() {
+  useEffect(() => {
+    console.log("LAYOUT MOUNTED");
+
+    return () => {
+      console.log("LAYOUT UNMOUNTED");
+    };
+  }, []);
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-900 antialiased">
       {/* Top Navigation Bar */}
