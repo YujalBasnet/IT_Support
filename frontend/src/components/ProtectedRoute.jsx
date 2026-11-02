@@ -16,13 +16,7 @@ const roleIds = {
 
 // Top-level authentication verification
 export default function ProtectedRoute() {
-  useEffect(() => {
-    console.log("LAYOUT MOUNTED");
-
-    return () => {
-      console.log("LAYOUT UNMOUNTED");
-    };
-  }, []);
+ 
   const [session, setSession] = useState(() => {
     const token = localStorage.getItem("token");
     let cachedUser = null;
