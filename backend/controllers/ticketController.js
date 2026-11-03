@@ -926,7 +926,7 @@ export const getTicketHistory = (req, res) => {
 
   // First, check whether the ticket exists.
   const ticketQuery = `
-    SELECT id, requester_id, assigned_agent_id
+    SELECT id, requester_id, assigned_agent_id, team_id
     FROM tickets
     WHERE id = ?
   `;
