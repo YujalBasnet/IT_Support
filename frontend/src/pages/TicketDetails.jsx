@@ -16,6 +16,7 @@ import {
   Calendar,
   User,
   ShieldAlert,
+  RefreshCw,
 } from "lucide-react";
 import api from "../services/api";
 
@@ -59,19 +60,22 @@ export default function TicketDetails() {
   // Comments State
   const [comments, setComments] = useState(() => commentsCache.get(id) || []);
   const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsError, setCommentsError] = useState("");
   const [newComment, setNewComment] = useState("");
   const [isInternalComment, setIsInternalComment] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [commentFeedback, setCommentFeedback] = useState({ type: "", text: "" });
 
   // Attachments State
   const [attachments, setAttachments] = useState(() => attachmentsCache.get(id) || []);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
-  const [attachmentError, setAttachmentError] = useState("");
+  const [attachmentMessage, setAttachmentMessage] = useState({ type: "", text: "" });
 
   // History State
   const [history, setHistory] = useState(() => historyCache.get(id) || []);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
 
   // Active Tab: comments | attachments | history
   const [activeTab, setActiveTab] = useState("comments");
@@ -96,6 +100,7 @@ export default function TicketDetails() {
   // Fetch Comments
   const fetchComments = async () => {
     setCommentsLoading(true);
+    setCommentsError("");
     try {
       const { data } = await api.get(`/tickets/${id}/comments`);
       const list = Array.isArray(data.comments) ? data.comments : [];
@@ -103,6 +108,11 @@ export default function TicketDetails() {
       setComments(list);
     } catch (err) {
       console.error("Failed to load comments:", err);
+      setCommentsError(
+        err.response?.status === 403
+          ? "You do not have permission to view comments on this ticket."
+          : err.response?.data?.message || "Failed to load comments."
+      );
     } finally {
       setCommentsLoading(false);
     }
@@ -126,13 +136,19 @@ export default function TicketDetails() {
   // Fetch History
   const fetchHistory = async () => {
     setHistoryLoading(true);
+    setHistoryError("");
     try {
       const { data } = await api.get(`/tickets/${id}/history`);
       const list = Array.isArray(data.history) ? data.history : [];
       historyCache.set(id, list);
       setHistory(list);
     } catch (err) {
-      console.error("Failed to load ticket history:", err);
+      console.warn("Ticket history fetch notice:", err.response?.data?.message || err.message);
+      setHistoryError(
+        err.response?.status === 403
+          ? "You do not have permission to view this ticket's audit timeline."
+          : err.response?.data?.message || "Failed to load ticket history."
+      );
     } finally {
       setHistoryLoading(false);
     }
@@ -205,6 +221,7 @@ export default function TicketDetails() {
     if (!newComment.trim()) return;
 
     setSubmittingComment(true);
+    setCommentFeedback({ type: "", text: "" });
 
     try {
       await api.post(`/tickets/${id}/comments`, {
@@ -214,10 +231,21 @@ export default function TicketDetails() {
 
       setNewComment("");
       setIsInternalComment(false);
+      setCommentFeedback({
+        type: "success",
+        text: "Comment posted successfully.",
+      });
       fetchComments();
+
+      setTimeout(() => {
+        setCommentFeedback({ type: "", text: "" });
+      }, 3500);
     } catch (err) {
       console.error("Failed to add comment:", err);
-      alert(err.response?.data?.message || "Failed to post comment.");
+      setCommentFeedback({
+        type: "error",
+        text: err.response?.data?.message || "Failed to post comment.",
+      });
     } finally {
       setSubmittingComment(false);
     }
@@ -228,7 +256,7 @@ export default function TicketDetails() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setAttachmentError("");
+    setAttachmentMessage({ type: "", text: "" });
     setUploadingAttachment(true);
 
     try {
@@ -240,12 +268,21 @@ export default function TicketDetails() {
       });
 
       e.target.value = "";
+      setAttachmentMessage({
+        type: "success",
+        text: "File uploaded successfully.",
+      });
       fetchAttachments();
+
+      setTimeout(() => {
+        setAttachmentMessage({ type: "", text: "" });
+      }, 3500);
     } catch (err) {
       console.error("Failed to upload attachment:", err);
-      setAttachmentError(
-        err.response?.data?.message || "Failed to upload file. Max size 10MB."
-      );
+      setAttachmentMessage({
+        type: "error",
+        text: err.response?.data?.message || "Failed to upload file. Max size 10MB.",
+      });
     } finally {
       setUploadingAttachment(false);
     }
@@ -268,7 +305,10 @@ export default function TicketDetails() {
       window.URL.revokeObjectURL(blobUrl);
     } catch (err) {
       console.error("Download failed:", err);
-      alert(err.response?.data?.message || "Failed to download attachment.");
+      setAttachmentMessage({
+        type: "error",
+        text: err.response?.data?.message || "Failed to download attachment.",
+      });
     }
   };
 
@@ -280,10 +320,20 @@ export default function TicketDetails() {
 
     try {
       await api.delete(`/attachments/${attachmentId}`);
+      setAttachmentMessage({
+        type: "success",
+        text: "Attachment deleted.",
+      });
       fetchAttachments();
+      setTimeout(() => {
+        setAttachmentMessage({ type: "", text: "" });
+      }, 3000);
     } catch (err) {
       console.error("Failed to delete attachment:", err);
-      alert(err.response?.data?.message || "Failed to delete attachment.");
+      setAttachmentMessage({
+        type: "error",
+        text: err.response?.data?.message || "Failed to delete attachment.",
+      });
     }
   };
 
@@ -391,7 +441,7 @@ export default function TicketDetails() {
         </button>
 
         {/* Quick status badge & ID */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="text-xs text-slate-500">ID: #{ticket.id}</span>
           <span
             className={`inline-block rounded-full px-3 py-1 text-xs font-semibold border ${getStatusStyle(
@@ -420,7 +470,7 @@ export default function TicketDetails() {
               <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">
                 {ticket.ticket_number}
               </span>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight break-words">
                 {ticket.title}
               </h1>
             </div>
@@ -429,7 +479,7 @@ export default function TicketDetails() {
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
                 Description
               </h3>
-              <div className="text-slate-800 text-sm whitespace-pre-wrap leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-200/60">
+              <div className="text-slate-800 text-sm whitespace-pre-wrap leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-200/60 break-words">
                 {ticket.description}
               </div>
             </div>
@@ -437,11 +487,11 @@ export default function TicketDetails() {
 
           {/* Interactive Tabs Card (Comments, Attachments, Audit Trail) */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            {/* Tabs Bar */}
-            <div className="flex border-b border-slate-200 bg-slate-50/70 px-4 sm:px-6">
+            {/* Responsive Horizontal Scroll Tabs Bar */}
+            <div className="flex border-b border-slate-200 bg-slate-50/70 px-3 sm:px-6 overflow-x-auto scrollbar-thin">
               <button
                 onClick={() => setActiveTab("comments")}
-                className={`flex items-center gap-2 py-4 px-3 border-b-2 font-semibold text-sm transition cursor-pointer ${
+                className={`flex items-center gap-2 py-4 px-3 border-b-2 font-semibold text-sm transition cursor-pointer whitespace-nowrap shrink-0 ${
                   activeTab === "comments"
                     ? "border-blue-600 text-blue-600"
                     : "border-transparent text-slate-500 hover:text-slate-700"
@@ -453,7 +503,7 @@ export default function TicketDetails() {
 
               <button
                 onClick={() => setActiveTab("attachments")}
-                className={`flex items-center gap-2 py-4 px-3 border-b-2 font-semibold text-sm transition cursor-pointer ${
+                className={`flex items-center gap-2 py-4 px-3 border-b-2 font-semibold text-sm transition cursor-pointer whitespace-nowrap shrink-0 ${
                   activeTab === "attachments"
                     ? "border-blue-600 text-blue-600"
                     : "border-transparent text-slate-500 hover:text-slate-700"
@@ -465,7 +515,7 @@ export default function TicketDetails() {
 
               <button
                 onClick={() => setActiveTab("history")}
-                className={`flex items-center gap-2 py-4 px-3 border-b-2 font-semibold text-sm transition cursor-pointer ${
+                className={`flex items-center gap-2 py-4 px-3 border-b-2 font-semibold text-sm transition cursor-pointer whitespace-nowrap shrink-0 ${
                   activeTab === "history"
                     ? "border-blue-600 text-blue-600"
                     : "border-transparent text-slate-500 hover:text-slate-700"
@@ -478,11 +528,29 @@ export default function TicketDetails() {
 
             {/* Tab 1: Comments */}
             {activeTab === "comments" && (
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
+                {commentsError && (
+                  <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle size={16} className="text-amber-600 shrink-0" />
+                      <span>{commentsError}</span>
+                    </div>
+                    <button
+                      onClick={fetchComments}
+                      className="font-semibold text-amber-900 hover:underline cursor-pointer"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+
                 {/* Comments List */}
                 <div className="space-y-4 mb-6">
-                  {commentsLoading ? (
-                    <p className="text-xs text-slate-400">Loading comments...</p>
+                  {commentsLoading && comments.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 text-sm">
+                      <Clock size={20} className="animate-spin mx-auto mb-2 text-blue-600" />
+                      Loading comments...
+                    </div>
                   ) : comments.length === 0 ? (
                     <div className="py-8 text-center text-slate-400 text-sm">
                       <MessageSquare size={32} className="mx-auto mb-2 opacity-40" />
@@ -500,7 +568,7 @@ export default function TicketDetails() {
                               : "bg-slate-50 border-slate-200 text-slate-800"
                           }`}
                         >
-                          <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-xs text-slate-900">
                                 {c.user_name || "User"}
@@ -517,7 +585,7 @@ export default function TicketDetails() {
                                 : ""}
                             </span>
                           </div>
-                          <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed break-words">
                             {c.comment}
                           </p>
                         </div>
@@ -527,8 +595,25 @@ export default function TicketDetails() {
                 </div>
 
                 {/* New Comment Box */}
-                <form onSubmit={handleAddComment} className="pt-4 border-t border-slate-100">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+                <form onSubmit={handleAddComment} className="pt-4 border-t border-slate-100 space-y-3">
+                  {commentFeedback.text && (
+                    <div
+                      className={`p-3 rounded-xl text-xs flex items-center gap-2 transition animate-in fade-in ${
+                        commentFeedback.type === "success"
+                          ? "bg-green-50 text-green-700 border border-green-200"
+                          : "bg-red-50 text-red-700 border border-red-200"
+                      }`}
+                    >
+                      {commentFeedback.type === "success" ? (
+                        <CheckCircle2 size={16} className="shrink-0" />
+                      ) : (
+                        <AlertCircle size={16} className="shrink-0" />
+                      )}
+                      <span>{commentFeedback.text}</span>
+                    </div>
+                  )}
+
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
                     Add a comment
                   </label>
                   <textarea
@@ -540,7 +625,7 @@ export default function TicketDetails() {
                     className="w-full rounded-xl border border-slate-300 p-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
 
-                  <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     {/* Only Agents & Admins can post internal staff notes */}
                     {[2, 3].includes(currentRoleId) ? (
                       <label className="flex items-center gap-2 text-xs font-medium text-amber-800 cursor-pointer select-none">
@@ -563,7 +648,7 @@ export default function TicketDetails() {
                     <button
                       type="submit"
                       disabled={submittingComment || !newComment.trim()}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition cursor-pointer disabled:opacity-50"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition cursor-pointer disabled:opacity-50 w-full sm:w-fit"
                     >
                       <Send size={15} />
                       {submittingComment ? "Posting..." : "Send Reply"}
@@ -575,15 +660,26 @@ export default function TicketDetails() {
 
             {/* Tab 2: Attachments */}
             {activeTab === "attachments" && (
-              <div className="p-6">
-                {attachmentError && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg">
-                    {attachmentError}
+              <div className="p-4 sm:p-6">
+                {attachmentMessage.text && (
+                  <div
+                    className={`mb-4 p-3 rounded-xl text-xs flex items-center gap-2 transition animate-in fade-in ${
+                      attachmentMessage.type === "success"
+                        ? "bg-green-50 text-green-700 border border-green-200"
+                        : "bg-red-50 text-red-700 border border-red-200"
+                    }`}
+                  >
+                    {attachmentMessage.type === "success" ? (
+                      <CheckCircle2 size={16} className="shrink-0" />
+                    ) : (
+                      <AlertCircle size={16} className="shrink-0" />
+                    )}
+                    <span>{attachmentMessage.text}</span>
                   </div>
                 )}
 
                 {/* Upload Section */}
-                <div className="mb-6 p-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="mb-6 p-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                       Upload an Attachment
@@ -593,7 +689,7 @@ export default function TicketDetails() {
                     </p>
                   </div>
 
-                  <label className="flex items-center gap-2 rounded-lg bg-white border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer">
+                  <label className="flex items-center gap-2 rounded-lg bg-white border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer self-stretch sm:self-auto justify-center">
                     <Paperclip size={14} />
                     <span>{uploadingAttachment ? "Uploading..." : "Select File"}</span>
                     <input
@@ -607,8 +703,11 @@ export default function TicketDetails() {
 
                 {/* Attachments List */}
                 <div className="space-y-3">
-                  {attachmentsLoading ? (
-                    <p className="text-xs text-slate-400">Loading attachments...</p>
+                  {attachmentsLoading && attachments.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 text-sm">
+                      <Clock size={20} className="animate-spin mx-auto mb-2 text-blue-600" />
+                      Loading attachments...
+                    </div>
                   ) : attachments.length === 0 ? (
                     <div className="py-8 text-center text-slate-400 text-sm">
                       <Paperclip size={32} className="mx-auto mb-2 opacity-40" />
@@ -618,7 +717,7 @@ export default function TicketDetails() {
                     attachments.map((att) => (
                       <div
                         key={att.id}
-                        className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200"
+                        className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex-wrap sm:flex-nowrap gap-3"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="p-2 bg-blue-100 text-blue-600 rounded-lg shrink-0">
@@ -637,7 +736,7 @@ export default function TicketDetails() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0 ml-auto">
                           <button
                             onClick={() => handleDownloadAttachment(att)}
                             className="p-2 text-slate-600 hover:text-blue-600 hover:bg-white rounded-lg border border-transparent hover:border-slate-200 transition cursor-pointer"
@@ -664,13 +763,31 @@ export default function TicketDetails() {
 
             {/* Tab 3: History Timeline */}
             {activeTab === "history" && (
-              <div className="p-6">
-                {historyLoading ? (
-                  <p className="text-xs text-slate-400">Loading activity timeline...</p>
+              <div className="p-4 sm:p-6">
+                {historyError ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle size={16} className="text-amber-600 shrink-0" />
+                      <span>{historyError}</span>
+                    </div>
+                    <button
+                      onClick={fetchHistory}
+                      className="inline-flex items-center gap-1.5 font-semibold text-amber-900 hover:text-amber-700 underline cursor-pointer w-fit"
+                    >
+                      <RefreshCw size={12} className={historyLoading ? "animate-spin" : ""} />
+                      Retry
+                    </button>
+                  </div>
+                ) : historyLoading && history.length === 0 ? (
+                  <div className="py-8 text-center text-slate-400 text-sm space-y-2">
+                    <Clock size={20} className="animate-spin mx-auto text-blue-600" />
+                    <p>Loading activity timeline...</p>
+                  </div>
                 ) : history.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-6 text-center">
+                  <div className="py-8 text-center text-slate-400 text-sm">
+                    <History size={32} className="mx-auto mb-2 opacity-40" />
                     No history recorded for this ticket yet.
-                  </p>
+                  </div>
                 ) : (
                   <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
                     {history.map((event) => (
@@ -687,7 +804,7 @@ export default function TicketDetails() {
                               : ""}
                           </p>
                           {event.new_value && (
-                            <div className="mt-1.5 text-[11px] bg-slate-50 border border-slate-200 p-2 rounded text-slate-600 font-mono">
+                            <div className="mt-1.5 text-[11px] bg-slate-50 border border-slate-200 p-2 rounded text-slate-600 font-mono break-all">
                               {event.new_value}
                             </div>
                           )}
