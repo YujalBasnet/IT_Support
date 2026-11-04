@@ -137,7 +137,8 @@ export const downloadAttachment = async (req, res) => {
          a.original_name,
          a.file_path,
          t.requester_id,
-         t.assigned_agent_id
+         t.assigned_agent_id,
+         t.team_id
        FROM attachments a
        JOIN tickets t ON t.id = a.ticket_id
        WHERE a.id = ?`,
@@ -152,12 +153,21 @@ export const downloadAttachment = async (req, res) => {
 
     const attachment = rows[0];
 
+    let isTeamMember = false;
+    if (roleId === 2 && attachment.team_id) {
+      const [members] = await database.promise().query(
+        "SELECT 1 FROM team_members WHERE team_id = ? AND user_id = ?",
+        [attachment.team_id, userId]
+      );
+      isTeamMember = members.length > 0;
+    }
+
     const allowed =
       roleId === 3 ||
       (roleId === 1 &&
         Number(attachment.requester_id) === userId) ||
       (roleId === 2 &&
-        Number(attachment.assigned_agent_id) === userId);
+        (Number(attachment.assigned_agent_id) === userId || isTeamMember));
 
     if (!allowed) {
       return res.status(403).json({
@@ -224,7 +234,8 @@ export const deleteAttachment = async (req, res) => {
          a.uploaded_by,
          a.file_path,
          t.requester_id,
-         t.assigned_agent_id
+         t.assigned_agent_id,
+         t.team_id
        FROM attachments a
        JOIN tickets t ON t.id = a.ticket_id
        WHERE a.id = ?`,
@@ -239,6 +250,15 @@ export const deleteAttachment = async (req, res) => {
 
     const attachment = rows[0];
 
+    let isTeamMember = false;
+    if (roleId === 2 && attachment.team_id) {
+      const [members] = await database.promise().query(
+        "SELECT 1 FROM team_members WHERE team_id = ? AND user_id = ?",
+        [attachment.team_id, userId]
+      );
+      isTeamMember = members.length > 0;
+    }
+
     const canDelete =
       roleId === 3 ||
       (
@@ -247,7 +267,7 @@ export const deleteAttachment = async (req, res) => {
           (roleId === 1 &&
             Number(attachment.requester_id) === userId) ||
           (roleId === 2 &&
-            Number(attachment.assigned_agent_id) === userId)
+            (Number(attachment.assigned_agent_id) === userId || isTeamMember))
         )
       );
 
