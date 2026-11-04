@@ -357,9 +357,20 @@ export const getTicketById = (req, res) => {
   const ticketId = req.params.id;
 
   const query = `
-    SELECT *
-    FROM tickets
-    WHERE id = ?
+    SELECT
+      t.*,
+      u.name AS requester_name,
+      u.email AS requester_email,
+      a.name AS assigned_agent_name,
+      a.email AS assigned_agent_email,
+      c.name AS category_name,
+      st.name AS team_name
+    FROM tickets t
+    LEFT JOIN users u ON u.id = t.requester_id
+    LEFT JOIN users a ON a.id = t.assigned_agent_id
+    LEFT JOIN categories c ON c.id = t.category_id
+    LEFT JOIN support_teams st ON st.id = t.team_id
+    WHERE t.id = ?
   `;
 
   database.query(query, [ticketId], (error, results) => {
