@@ -17,6 +17,9 @@ import {
   User,
   ShieldAlert,
   RefreshCw,
+  Users2,
+  UserCheck,
+  Folder,
 } from "lucide-react";
 import api from "../services/api";
 
@@ -305,9 +308,21 @@ export default function TicketDetails() {
       window.URL.revokeObjectURL(blobUrl);
     } catch (err) {
       console.error("Download failed:", err);
+      let errorText = "Failed to download attachment.";
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const json = JSON.parse(text);
+          errorText = json.message || errorText;
+        } catch {
+          // fallback
+        }
+      } else if (err.response?.data?.message) {
+        errorText = err.response.data.message;
+      }
       setAttachmentMessage({
         type: "error",
-        text: err.response?.data?.message || "Failed to download attachment.",
+        text: errorText,
       });
     }
   };
@@ -901,6 +916,20 @@ export default function TicketDetails() {
               Ticket Details
             </h3>
 
+            {/* Category */}
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-slate-100 text-slate-600 rounded-lg">
+                <Folder size={16} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500">Category</p>
+                <p className="text-sm font-semibold text-slate-800 truncate">
+                  {ticket.category_name || "General"}
+                </p>
+              </div>
+            </div>
+
+            {/* Priority */}
             <div className="flex items-center gap-3">
               <div className="p-2 bg-slate-100 text-slate-600 rounded-lg">
                 <Tag size={16} />
@@ -913,6 +942,53 @@ export default function TicketDetails() {
               </div>
             </div>
 
+            {/* Support Team */}
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-slate-100 text-slate-600 rounded-lg">
+                <Users2 size={16} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500">Assigned Team</p>
+                <p className="text-sm font-semibold text-slate-800 truncate">
+                  {ticket.team_name || "Unassigned"}
+                </p>
+              </div>
+            </div>
+
+            {/* Assigned Agent */}
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-slate-100 text-slate-600 rounded-lg">
+                <UserCheck size={16} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500">Assigned Agent</p>
+                <p className="text-sm font-semibold text-slate-800 truncate">
+                  {ticket.assigned_agent_name || "Unassigned"}
+                </p>
+              </div>
+            </div>
+
+            {/* Requester */}
+            {ticket.requester_name && (
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-slate-100 text-slate-600 rounded-lg">
+                  <User size={16} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-500">Requester</p>
+                  <p className="text-sm font-semibold text-slate-800 truncate">
+                    {ticket.requester_name}
+                  </p>
+                  {ticket.requester_email && (
+                    <p className="text-xs text-slate-400 truncate">
+                      {ticket.requester_email}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Created At */}
             <div className="flex items-center gap-3">
               <div className="p-2 bg-slate-100 text-slate-600 rounded-lg">
                 <Calendar size={16} />
@@ -927,6 +1003,7 @@ export default function TicketDetails() {
               </div>
             </div>
 
+            {/* Last Updated */}
             <div className="flex items-center gap-3">
               <div className="p-2 bg-slate-100 text-slate-600 rounded-lg">
                 <Clock size={16} />
@@ -940,20 +1017,6 @@ export default function TicketDetails() {
                 </p>
               </div>
             </div>
-
-            {ticket.requester_name && (
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-slate-100 text-slate-600 rounded-lg">
-                  <User size={16} />
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">Requester</p>
-                  <p className="text-sm font-semibold text-slate-800">
-                    {ticket.requester_name}
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
