@@ -451,7 +451,7 @@ export default function AdminDashboard() {
             </div>
             <div>
               <h3 className="font-bold text-slate-900 text-sm">Support Teams</h3>
-              <p className="text-xs text-slate-500">Organize agent rosters</p>
+              <p className="text-xs text-slate-500">Organize agent roster</p>
             </div>
           </div>
           <ArrowRight size={18} className="text-slate-300 group-hover:text-purple-600 transition" />
