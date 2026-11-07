@@ -776,7 +776,7 @@ export default function AdminDashboard() {
                   type="button"
                   disabled={currentPage <= 1 || loading}
                   onClick={() => setCurrentPage((page) => page - 1)}
-                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
                 >
                   Previous
                 </button>
@@ -789,7 +789,7 @@ export default function AdminDashboard() {
                     currentPage >= pagination.totalPages
                   }
                   onClick={() => setCurrentPage((page) => page + 1)}
-                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
                 >
                   Next
                 </button>
