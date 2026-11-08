@@ -590,7 +590,7 @@ export default function LandingPage() {
               onClick={() => navigate(currentUser ? getDashboardPath() : "/login")}
               className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-white text-slate-900 font-extrabold text-base hover:bg-slate-100 transition shadow-xl cursor-pointer"
             >
-              <span>{currentUser ? "Go to Dashboard" : "Get Started with Google SSO"}</span>
+              <span>{currentUser ? "Go to Dashboard" : "Get Started"}</span>
               <ArrowRight size={18} />
             </button>
           </div>
