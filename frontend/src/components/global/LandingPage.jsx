@@ -97,7 +97,7 @@ export default function LandingPage() {
               <>
                 <button
                   onClick={() => navigate("/login")}
-                  className="px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white transition"
+                  className="px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white transition cursor-pointer"
                 >
                   Sign In
                 </button>
