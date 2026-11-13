@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { NavLink, Link, useNavigate } from "react-router-dom";
 import {
   Headphones,
@@ -11,11 +11,20 @@ import {
   LogOut,
   Menu,
   X,
+  Bell,
+  CheckCheck,
+  CheckCircle2,
 } from "lucide-react";
+import api from "../../services/api";
 
 export default function Navbar() {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const notifRef = useRef(null);
 
   let user = null;
   try {
@@ -25,6 +34,83 @@ export default function Navbar() {
   }
 
   const roleId = Number(user?.role_id);
+
+  const fetchNotifications = async () => {
+    if (!user) return;
+    try {
+      setLoadingNotifications(true);
+      const res = await api.get("/notifications?limit=20");
+      setNotifications(res.data.notifications || []);
+      setUnreadCount(res.data.unreadCount || 0);
+    } catch {
+      // silent
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    fetchNotifications();
+    const timer = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotificationsOpen(false);
+      }
+    };
+    if (notificationsOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [notificationsOpen]);
+
+  const handleNotificationClick = async (notif) => {
+    if (!notif.is_read) {
+      try {
+        await api.patch(`/notifications/${notif.id}/read`);
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notif.id ? { ...n, is_read: 1 } : n))
+        );
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      } catch {
+        // silent
+      }
+    }
+    setNotificationsOpen(false);
+    if (notif.ticket_id) {
+      navigate(`/tickets/${notif.ticket_id}`);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await api.patch("/notifications/read-all");
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: 1 })));
+      setUnreadCount(0);
+    } catch {
+      // silent
+    }
+  };
+
+  const formatTimeAgo = (dateStr) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffSec = Math.floor((now - d) / 1000);
+    if (diffSec < 60) return "just now";
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHours = Math.floor(diffMin / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffMin / 60 / 24);
+    return `${diffDays}d ago`;
+  };
 
   const dashboardPaths = {
     1: "/employee",
@@ -136,6 +222,95 @@ export default function Navbar() {
               <span>My Profile</span>
             </NavLink>
           </nav>
+
+          {/* Notifications Bell Dropdown */}
+          <div className="relative shrink-0" ref={notifRef}>
+            <button
+              onClick={() => setNotificationsOpen(!notificationsOpen)}
+              className="relative p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              title="Notifications"
+              aria-label="View notifications"
+            >
+              <Bell size={20} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs animate-pulse">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Dropdown Popover */}
+            {notificationsOpen && (
+              <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl z-50 overflow-hidden animate-fadeIn text-slate-200">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-800/60">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-white">Notifications</span>
+                    {unreadCount > 0 && (
+                      <span className="rounded-full bg-blue-600/30 border border-blue-500/50 px-2 py-0.5 text-[10px] font-semibold text-blue-300">
+                        {unreadCount} new
+                      </span>
+                    )}
+                  </div>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={handleMarkAllRead}
+                      className="flex items-center gap-1 text-[11px] font-semibold text-blue-400 hover:text-blue-300 transition cursor-pointer"
+                    >
+                      <CheckCheck size={14} />
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+
+                <div className="max-h-80 overflow-y-auto divide-y divide-slate-800/60">
+                  {loadingNotifications && notifications.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-slate-400">
+                      Loading notifications...
+                    </div>
+                  ) : notifications.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-slate-400 flex flex-col items-center gap-2">
+                      <Bell size={24} className="text-slate-600" />
+                      No notifications yet
+                    </div>
+                  ) : (
+                    notifications.map((notif) => (
+                      <div
+                        key={notif.id}
+                        onClick={() => handleNotificationClick(notif)}
+                        className={`p-3.5 transition flex items-start gap-3 cursor-pointer ${
+                          notif.is_read
+                            ? "bg-slate-900/60 hover:bg-slate-800/40 text-slate-400"
+                            : "bg-slate-800/40 hover:bg-slate-800/80 text-slate-200"
+                        }`}
+                      >
+                        <div className="pt-0.5 shrink-0">
+                          {!notif.is_read ? (
+                            <span className="inline-block w-2 h-2 rounded-full bg-blue-500 ring-4 ring-blue-500/20" />
+                          ) : (
+                            <span className="inline-block w-2 h-2 rounded-full bg-slate-700" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs leading-relaxed font-medium">
+                            {notif.message}
+                          </p>
+                          <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-500">
+                            {notif.ticket_number && (
+                              <span className="font-semibold text-slate-400">
+                                {notif.ticket_number}
+                              </span>
+                            )}
+                            <span>•</span>
+                            <span>{formatTimeAgo(notif.created_at)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Desktop Right: User Profile & Logout */}
           <div className="hidden md:flex items-center gap-3 shrink-0">
