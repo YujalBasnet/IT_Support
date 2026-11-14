@@ -1,6 +1,7 @@
 import database from "../database/database.js";
 import { sendEmail } from "../services/emailService.js";
 import { createAuditLog } from "../services/auditLogService.js";
+import { createNotification } from "../services/notificationService.js";
 
 export const createTicket = (req, res) => {
   const { title, description, category_id, priority = "MEDIUM" } = req.body;
@@ -175,6 +176,13 @@ IT Support Team
           },
         );
 
+        createNotification({
+          userId: req.user.userId,
+          ticketId,
+          type: "TICKET_CREATED",
+          message: `Your ticket ${ticketNumber} ("${title.trim()}") was created successfully.`,
+        });
+
         return res.status(201).json({
           message: "Ticket created successfully",
           ticket: {
@@ -205,6 +213,10 @@ export const getTickets = (req, res) => {
     assigned_agent_id,
     team_id,
     requester_id,
+    startDate,
+    endDate,
+    dateFrom,
+    dateTo,
     page = "1",
     limit = "10",
     sortBy = "createdAt",
@@ -295,6 +307,20 @@ export const getTickets = (req, res) => {
       conditions.push(`${field} = ?`);
       values.push(value);
     }
+  }
+
+  // Date range filtering (Section 20)
+  const fromDate = startDate || dateFrom;
+  const toDate = endDate || dateTo;
+
+  if (fromDate && typeof fromDate === "string" && fromDate.trim()) {
+    conditions.push("created_at >= ?");
+    values.push(fromDate.trim().includes(" ") || fromDate.trim().includes("T") ? fromDate.trim() : `${fromDate.trim()} 00:00:00`);
+  }
+
+  if (toDate && typeof toDate === "string" && toDate.trim()) {
+    conditions.push("created_at <= ?");
+    values.push(toDate.trim().includes(" ") || toDate.trim().includes("T") ? toDate.trim() : `${toDate.trim()} 23:59:59`);
   }
 
   const whereClause = conditions.length
@@ -441,17 +467,18 @@ export const getTicketById = (req, res) => {
 
 export const assignTicket = async (req, res) => {
   const ticketId = Number(req.params.id);
-  const agentId = Number(req.body?.assigned_agent_id);
-  const teamId = Number(req.body?.team_id);
   const userId = Number(req.user.userId);
+  const roleId = Number(req.user.roleId);
+
+  let agentId = req.body?.assigned_agent_id ? Number(req.body.assigned_agent_id) : userId;
+  let teamId = req.body?.team_id ? Number(req.body.team_id) : null;
 
   if (
     !Number.isSafeInteger(ticketId) || ticketId <= 0 ||
-    !Number.isSafeInteger(agentId) || agentId <= 0 ||
-    !Number.isSafeInteger(teamId) || teamId <= 0
+    !Number.isSafeInteger(agentId) || agentId <= 0
   ) {
     return res.status(400).json({
-      message: "Valid ticket, agent, and team IDs are required",
+      message: "Valid ticket and agent IDs are required",
     });
   }
 
@@ -465,7 +492,7 @@ export const assignTicket = async (req, res) => {
 
     // 1. Lock ticket row while assigning
     const [tickets] = await db.query(
-      `SELECT id, assigned_agent_id, team_id, status
+      `SELECT id, ticket_number, title, requester_id, assigned_agent_id, team_id, status
        FROM tickets
        WHERE id = ?
        FOR UPDATE`,
@@ -480,6 +507,33 @@ export const assignTicket = async (req, res) => {
     }
 
     const existingTicket = tickets[0];
+
+    // If team_id was not explicitly passed, fallback to existing ticket team_id
+    if (!teamId && existingTicket.team_id) {
+      teamId = existingTicket.team_id;
+    }
+
+    if (!teamId) {
+      await db.rollback();
+      return res.status(400).json({
+        message: "A support team ID is required to assign this ticket",
+      });
+    }
+
+    // Role-based permission check (Section 4.2 & 10)
+    // Support agents can assign/claim tickets within their own team
+    if (roleId === 2) {
+      const [agentTeamCheck] = await db.query(
+        "SELECT 1 FROM team_members WHERE team_id = ? AND user_id = ?",
+        [teamId, userId]
+      );
+      if (agentTeamCheck.length === 0) {
+        await db.rollback();
+        return res.status(403).json({
+          message: "You can only claim or assign tickets within your assigned support team(s)",
+        });
+      }
+    }
 
     // 2. Validate team
     const [teams] = await db.query(
@@ -574,6 +628,81 @@ export const assignTicket = async (req, res) => {
       },
     });
 
+    // 8. Notifications & Email after successful commit
+    try {
+      const [rows] = await db.query(
+        `SELECT
+           t.ticket_number,
+           t.title,
+           t.priority,
+           u.email AS agent_email,
+           u.name AS agent_name
+         FROM tickets t
+         JOIN users u ON u.id = t.assigned_agent_id
+         WHERE t.id = ?`,
+        [ticketId]
+      );
+
+      if (rows.length > 0) {
+        const ticket = rows[0];
+
+        // Send email to agent
+        if (ticket.agent_email) {
+          sendEmail({
+            to: ticket.agent_email,
+            subject: `Ticket Assigned: ${ticket.ticket_number}`,
+            text: `
+Hello ${ticket.agent_name || "Support Agent"},
+
+A support ticket has been assigned to you.
+
+Ticket Number: ${ticket.ticket_number}
+Title: ${ticket.title}
+Priority: ${ticket.priority}
+Status: ASSIGNED
+
+Please log in to the IT Support System to review the ticket.
+
+Regards,
+IT Support Team
+            `.trim(),
+          }).catch((emailError) => {
+            console.error("Assignment notification email failed:", emailError.message);
+          });
+        }
+
+        // In-app notification for assigned agent
+        createNotification({
+          userId: agentId,
+          ticketId,
+          type: "TICKET_ASSIGNED",
+          message: `Ticket ${ticket.ticket_number} ("${ticket.title}") has been assigned to you.`,
+        });
+
+        // In-app notification for requester
+        if (existingTicket.requester_id) {
+          createNotification({
+            userId: existingTicket.requester_id,
+            ticketId,
+            type: "TICKET_ASSIGNED",
+            message: `Your ticket ${ticket.ticket_number} has been assigned to ${ticket.agent_name || "a support agent"}.`,
+          });
+        }
+      }
+    } catch (notificationError) {
+      console.error(
+        "Failed to retrieve assignment notification details:",
+        notificationError
+      );
+    }
+
+    return res.status(200).json({
+      message: "Ticket assigned successfully",
+      ticketId,
+      assigned_agent_id: agentId,
+      team_id: teamId,
+      status: "ASSIGNED",
+    });
   } catch (error) {
     console.error("Ticket assignment failed:", error);
 
@@ -589,64 +718,6 @@ export const assignTicket = async (req, res) => {
       message: "Failed to assign ticket",
     });
   }
-
-  // 8. Send email only after successful commit
-  try {
-    const [rows] = await db.query(
-      `SELECT
-         t.ticket_number,
-         t.title,
-         t.priority,
-         u.email AS agent_email,
-         u.name AS agent_name
-       FROM tickets t
-       JOIN users u ON u.id = t.assigned_agent_id
-       WHERE t.id = ?`,
-      [ticketId]
-    );
-
-    if (rows.length > 0 && rows[0].agent_email) {
-      const ticket = rows[0];
-
-      sendEmail({
-        to: ticket.agent_email,
-        subject: `Ticket Assigned: ${ticket.ticket_number}`,
-        text: `
-Hello ${ticket.agent_name || "Support Agent"},
-
-A support ticket has been assigned to you.
-
-Ticket Number: ${ticket.ticket_number}
-Title: ${ticket.title}
-Priority: ${ticket.priority}
-Status: ASSIGNED
-
-Please log in to the IT Support System to review the ticket.
-
-Regards,
-IT Support Team
-        `.trim(),
-      }).catch((emailError) => {
-        console.error(
-          "Assignment notification email failed:",
-          emailError.message
-        );
-      });
-    }
-  } catch (notificationError) {
-    console.error(
-      "Failed to retrieve assignment notification details:",
-      notificationError
-    );
-  }
-
-  return res.status(200).json({
-    message: "Ticket assigned successfully",
-    ticketId,
-    assigned_agent_id: agentId,
-    team_id: teamId,
-    status: "ASSIGNED",
-  });
 };
 
 
@@ -838,10 +909,16 @@ database.query(
       t.ticket_number,
       t.title,
       t.priority,
+      t.assigned_agent_id,
+      t.team_id,
+      u.id AS requester_id,
       u.email AS requester_email,
-      u.name AS requester_name
+      u.name AS requester_name,
+      agent.email AS agent_email,
+      agent.name AS agent_name
     FROM tickets t
     JOIN users u ON u.id = t.requester_id
+    LEFT JOIN users agent ON agent.id = t.assigned_agent_id
     WHERE t.id = ?
   `,
   [ticketId],
@@ -851,13 +928,15 @@ database.query(
         "Failed to fetch ticket notification details:",
         notificationError
       );
-    } else if (rows.length > 0 && rows[0].requester_email) {
+    } else if (rows.length > 0) {
       const ticketDetails = rows[0];
 
-      sendEmail({
-        to: ticketDetails.requester_email,
-        subject: `Ticket Status Updated: ${ticketDetails.ticket_number}`,
-        text: `
+      // Send status email to requester
+      if (ticketDetails.requester_email) {
+        sendEmail({
+          to: ticketDetails.requester_email,
+          subject: `Ticket Status Updated: ${ticketDetails.ticket_number}`,
+          text: `
 Hello ${ticketDetails.requester_name || "User"},
 
 The status of your support ticket has been updated.
@@ -872,13 +951,100 @@ Please log in to the IT Support System to view your ticket.
 
 Regards,
 IT Support Team
-        `.trim(),
-      }).catch((emailError) => {
-        console.error(
-          "Ticket status notification email failed:",
-          emailError.message
-        );
+          `.trim(),
+        }).catch((emailError) => {
+          console.error(
+            "Ticket status notification email failed:",
+            emailError.message
+          );
+        });
+      }
+
+      // In-app notification for requester
+      createNotification({
+        userId: ticketDetails.requester_id,
+        ticketId,
+        type: "STATUS_UPDATED",
+        message: `Ticket ${ticketDetails.ticket_number} status updated to ${status.replace(/_/g, " ")}.`,
       });
+
+      // Special handling for Ticket Reopened (Section 16: notify support staff)
+      if (status === "REOPENED") {
+        if (ticketDetails.agent_email && ticketDetails.assigned_agent_id) {
+          sendEmail({
+            to: ticketDetails.agent_email,
+            subject: `Ticket Reopened: ${ticketDetails.ticket_number}`,
+            text: `
+Hello ${ticketDetails.agent_name || "Support Agent"},
+
+Ticket ${ticketDetails.ticket_number} ("${ticketDetails.title}") has been reopened by ${ticketDetails.requester_name || "the requester"}.
+
+Previous Status: ${ticket.status}
+New Status: REOPENED
+
+Please log in to the IT Support System to review the reopened ticket.
+
+Regards,
+IT Support Team
+            `.trim(),
+          }).catch((err) => {
+            console.error("Agent ticket reopen email failed:", err.message);
+          });
+
+          createNotification({
+            userId: ticketDetails.assigned_agent_id,
+            ticketId,
+            type: "TICKET_REOPENED",
+            message: `Ticket ${ticketDetails.ticket_number} has been reopened by ${ticketDetails.requester_name || "the requester"}.`,
+          });
+        } else if (ticketDetails.team_id) {
+          // Unassigned ticket: notify all members of the assigned support team
+          database.query(
+            "SELECT u.id, u.email FROM team_members tm JOIN users u ON u.id = tm.user_id WHERE tm.team_id = ?",
+            [ticketDetails.team_id],
+            (teamErr, members) => {
+              if (!teamErr && Array.isArray(members)) {
+                members.forEach((member) => {
+                  if (member.email) {
+                    sendEmail({
+                      to: member.email,
+                      subject: `Ticket Reopened: ${ticketDetails.ticket_number}`,
+                      text: `
+Hello,
+
+Ticket ${ticketDetails.ticket_number} ("${ticketDetails.title}") belonging to your team has been reopened.
+
+Please log in to the IT Support System to review or claim this ticket.
+
+Regards,
+IT Support Team
+                      `.trim(),
+                    }).catch((err) => console.error("Team reopen email failed:", err.message));
+                  }
+
+                  createNotification({
+                    userId: member.id,
+                    ticketId,
+                    type: "TICKET_REOPENED",
+                    message: `Ticket ${ticketDetails.ticket_number} belonging to your team has been reopened.`,
+                  });
+                });
+              }
+            }
+          );
+        }
+      } else if (
+        ticketDetails.assigned_agent_id &&
+        ticketDetails.assigned_agent_id !== userId
+      ) {
+        // Status changed by another user: notify the assigned agent
+        createNotification({
+          userId: ticketDetails.assigned_agent_id,
+          ticketId,
+          type: "STATUS_UPDATED",
+          message: `Ticket ${ticketDetails.ticket_number} status updated to ${status.replace(/_/g, " ")}.`,
+        });
+      }
     }
 
     return res.status(200).json({
@@ -1195,23 +1361,32 @@ export const updateTicket = async (req, res) => {
       ]
     );
 
-    // If priority changed, notify requester via email
+    // If priority changed, notify requester via email and in-app notification
     if (changes.priority) {
       const [requesterRows] = await database.promise().query(
         "SELECT email, name FROM users WHERE id = ?",
         [ticket.requester_id]
       );
-      if (requesterRows.length > 0 && requesterRows[0].email) {
-        sendEmail({
-          to: requesterRows[0].email,
-          subject: `Ticket Priority Updated: ${ticket.ticket_number}`,
-          text: `Hello ${requesterRows[0].name || "User"},
+      if (requesterRows.length > 0) {
+        if (requesterRows[0].email) {
+          sendEmail({
+            to: requesterRows[0].email,
+            subject: `Ticket Priority Updated: ${ticket.ticket_number}`,
+            text: `Hello ${requesterRows[0].name || "User"},
 
 The priority of your support ticket (${ticket.ticket_number}) has been changed from ${ticket.priority} to ${priority}.
 
 Regards,
 IT Support Team`,
-        }).catch((err) => console.error("Priority update email failed:", err.message));
+          }).catch((err) => console.error("Priority update email failed:", err.message));
+        }
+
+        createNotification({
+          userId: ticket.requester_id,
+          ticketId,
+          type: "PRIORITY_CHANGED",
+          message: `The priority of ticket ${ticket.ticket_number} was changed from ${ticket.priority} to ${priority}.`,
+        });
       }
     }
 
