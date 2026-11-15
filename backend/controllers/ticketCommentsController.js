@@ -1,6 +1,7 @@
 
 import database from "../database/database.js";
 import { sendEmail } from "../services/emailService.js";
+import { createNotification } from "../services/notificationService.js";
 
 // Add a comment to a ticket
 
@@ -185,6 +186,14 @@ IT Support Team
                   "Comment notification email failed:",
                   emailError.message
                 );
+              });
+
+              // Create in-app notification
+              createNotification({
+                userId: recipientId,
+                ticketId,
+                type: "NEW_COMMENT",
+                message: `New comment on ticket ${ticket.ticket_number}: "${comment.trim().slice(0, 80)}${comment.trim().length > 80 ? "..." : ""}"`,
               });
             }
 
