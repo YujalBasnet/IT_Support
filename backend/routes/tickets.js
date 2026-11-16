@@ -9,7 +9,7 @@ import {
   getTicketHistory,
   getTicketStats,
 } from "../controllers/ticketController.js";
-import { isAdmin, isLoggedIn } from "../middleware/authMiddleware.js";
+import { isAdmin, isLoggedIn, isAgentOrAdmin } from "../middleware/authMiddleware.js";
 import { addTicketComment, getTicketComments } from "../controllers/ticketCommentsController.js";
 
 const router = express.Router();
@@ -137,6 +137,16 @@ router.get("/stats", isLoggedIn, isAdmin, getTicketStats);
  *         schema:
  *           type: integer
  *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *         description: Filter tickets created on or after date (YYYY-MM-DD)
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *         description: Filter tickets created on or before date (YYYY-MM-DD)
+ *       - in: query
  *         name: page
  *         schema:
  *           type: integer
@@ -216,11 +226,11 @@ router.get("/", isLoggedIn, getTickets);
  *       400:
  *         description: Validation error or agent does not belong to team.
  *       403:
- *         description: Forbidden - Admin permission required.
+ *         description: Forbidden - Support agent or Admin permission required.
  *       404:
  *         description: Ticket or team not found.
  */
-router.patch("/:id/assign", isLoggedIn, isAdmin, assignTicket);
+router.patch("/:id/assign", isLoggedIn, isAgentOrAdmin, assignTicket);
 
 /**
  * @swagger
