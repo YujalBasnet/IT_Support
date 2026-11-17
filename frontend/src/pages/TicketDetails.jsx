@@ -60,6 +60,12 @@ export default function TicketDetails() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [statusMessage, setStatusMessage] = useState({ type: "", text: "" });
 
+  // Priority & Claim State
+  const [updatingPriority, setUpdatingPriority] = useState(false);
+  const [priorityMessage, setPriorityMessage] = useState({ type: "", text: "" });
+  const [claimingTicket, setClaimingTicket] = useState(false);
+  const [claimMessage, setClaimMessage] = useState({ type: "", text: "" });
+
   // Comments State
   const [comments, setComments] = useState(() => commentsCache.get(id) || []);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -215,6 +221,67 @@ export default function TicketDetails() {
       });
     } finally {
       setUpdatingStatus(false);
+    }
+  };
+
+  // Handle Priority Update
+  const handlePriorityChange = async (newPriority) => {
+    if (!newPriority || newPriority === ticket.priority) return;
+
+    setUpdatingPriority(true);
+    setPriorityMessage({ type: "", text: "" });
+
+    try {
+      await api.patch(`/tickets/${id}`, { priority: newPriority });
+      setPriorityMessage({
+        type: "success",
+        text: `Priority updated to ${newPriority}.`,
+      });
+      fetchTicket();
+      fetchHistory();
+
+      setTimeout(() => {
+        setPriorityMessage({ type: "", text: "" });
+      }, 3500);
+    } catch (err) {
+      console.error("Failed to update priority:", err);
+      setPriorityMessage({
+        type: "error",
+        text: err.response?.data?.message || "Failed to update priority.",
+      });
+    } finally {
+      setUpdatingPriority(false);
+    }
+  };
+
+  // Handle Claim Ticket
+  const handleClaimTicket = async () => {
+    setClaimingTicket(true);
+    setClaimMessage({ type: "", text: "" });
+
+    try {
+      await api.patch(`/tickets/${id}/assign`, {
+        assigned_agent_id: currentUserId,
+        team_id: ticket.team_id,
+      });
+      setClaimMessage({
+        type: "success",
+        text: "You have claimed this ticket.",
+      });
+      fetchTicket();
+      fetchHistory();
+
+      setTimeout(() => {
+        setClaimMessage({ type: "", text: "" });
+      }, 3500);
+    } catch (err) {
+      console.error("Failed to claim ticket:", err);
+      setClaimMessage({
+        type: "error",
+        text: err.response?.data?.message || "Failed to claim ticket.",
+      });
+    } finally {
+      setClaimingTicket(false);
     }
   };
 
@@ -930,16 +997,50 @@ export default function TicketDetails() {
             </div>
 
             {/* Priority */}
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-slate-100 text-slate-600 rounded-lg">
-                <Tag size={16} />
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-slate-100 text-slate-600 rounded-lg">
+                    <Tag size={16} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Priority</p>
+                    <span
+                      className={`inline-block mt-0.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${getPriorityStyle(
+                        ticket.priority
+                      )}`}
+                    >
+                      {ticket.priority}
+                    </span>
+                  </div>
+                </div>
+
+                {(currentRoleId === 2 || currentRoleId === 3) && (
+                  <select
+                    value={ticket.priority}
+                    disabled={updatingPriority}
+                    onChange={(e) => handlePriorityChange(e.target.value)}
+                    className="text-xs font-semibold border border-slate-300 rounded-lg px-2 py-1 bg-white hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer disabled:opacity-50"
+                    title="Change priority"
+                  >
+                    <option value="LOW">LOW</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="URGENT">URGENT</option>
+                  </select>
+                )}
               </div>
-              <div>
-                <p className="text-xs text-slate-500">Priority</p>
-                <p className="text-sm font-semibold text-slate-800">
-                  {ticket.priority}
+              {priorityMessage.text && (
+                <p
+                  className={`text-[11px] font-medium pl-11 ${
+                    priorityMessage.type === "success"
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  {priorityMessage.text}
                 </p>
-              </div>
+              )}
             </div>
 
             {/* Support Team */}
@@ -956,16 +1057,41 @@ export default function TicketDetails() {
             </div>
 
             {/* Assigned Agent */}
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-slate-100 text-slate-600 rounded-lg">
-                <UserCheck size={16} />
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2 bg-slate-100 text-slate-600 rounded-lg shrink-0">
+                    <UserCheck size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-slate-500">Assigned Agent</p>
+                    <p className="text-sm font-semibold text-slate-800 truncate">
+                      {ticket.assigned_agent_name || "Unassigned"}
+                    </p>
+                  </div>
+                </div>
+
+                {!ticket.assigned_agent_id && (currentRoleId === 2 || currentRoleId === 3) && (
+                  <button
+                    onClick={handleClaimTicket}
+                    disabled={claimingTicket}
+                    className="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition cursor-pointer disabled:opacity-50"
+                  >
+                    {claimingTicket ? "Claiming..." : "Claim Ticket"}
+                  </button>
+                )}
               </div>
-              <div className="min-w-0">
-                <p className="text-xs text-slate-500">Assigned Agent</p>
-                <p className="text-sm font-semibold text-slate-800 truncate">
-                  {ticket.assigned_agent_name || "Unassigned"}
+              {claimMessage.text && (
+                <p
+                  className={`text-[11px] font-medium pl-11 ${
+                    claimMessage.type === "success"
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  {claimMessage.text}
                 </p>
-              </div>
+              )}
             </div>
 
             {/* Requester */}
