@@ -33,6 +33,8 @@ export default function AgentDashboard() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [priorityFilter, setPriorityFilter] = useState("ALL");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState(() => cachedAgentPagination || {
     page: 1,
@@ -54,7 +56,7 @@ export default function AgentDashboard() {
   // Reset to page 1 on filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, priorityFilter]);
+  }, [statusFilter, priorityFilter, startDate, endDate]);
 
   // Fetch tickets assigned to this agent
   const fetchAssignedTickets = async (isBackground = false) => {
@@ -71,6 +73,8 @@ export default function AgentDashboard() {
           search: debouncedSearch || undefined,
           status: statusFilter === "ALL" ? undefined : statusFilter,
           priority: priorityFilter === "ALL" ? undefined : priorityFilter,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
           sortBy: "createdAt",
           sortOrder: "desc",
         },
@@ -107,7 +111,7 @@ export default function AgentDashboard() {
 
   useEffect(() => {
     fetchAssignedTickets(Boolean(cachedAgentTickets));
-  }, [currentPage, debouncedSearch, statusFilter, priorityFilter]);
+  }, [currentPage, debouncedSearch, statusFilter, priorityFilter, startDate, endDate]);
 
   // Handle quick status update directly from table if needed
   const handleQuickStatusChange = async (ticketId, newStatus) => {
@@ -265,14 +269,14 @@ export default function AgentDashboard() {
         </div>
 
         {/* Filters */}
-        <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="relative">
             <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search ticket # or title..."
+              placeholder="Search # or title..."
               className="w-full rounded-lg border border-slate-300 pl-10 pr-3 py-2 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 text-sm"
             />
           </div>
@@ -302,6 +306,22 @@ export default function AgentDashboard() {
             <option value="HIGH">High</option>
             <option value="URGENT">Urgent</option>
           </select>
+
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            title="From Date"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-purple-500 text-sm text-slate-700"
+          />
+
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            title="To Date"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-purple-500 text-sm text-slate-700"
+          />
         </div>
 
         {/* Error message */}
