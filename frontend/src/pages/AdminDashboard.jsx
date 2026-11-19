@@ -27,6 +27,8 @@ export default function AdminDashboard() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [priorityFilter, setPriorityFilter] = useState("ALL");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState(() => cachedAdminPagination || {
     page: 1,
@@ -61,7 +63,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, statusFilter, priorityFilter]);
+  }, [debouncedSearch, statusFilter, priorityFilter, startDate, endDate]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -79,6 +81,8 @@ export default function AdminDashboard() {
             search: debouncedSearch || undefined,
             status: statusFilter === "ALL" ? undefined : statusFilter,
             priority: priorityFilter === "ALL" ? undefined : priorityFilter,
+            startDate: startDate || undefined,
+            endDate: endDate || undefined,
           },
           signal: controller.signal,
         });
@@ -129,7 +133,7 @@ export default function AdminDashboard() {
     return () => {
       controller.abort();
     };
-  }, [currentPage, debouncedSearch, statusFilter, priorityFilter]);
+  }, [currentPage, debouncedSearch, statusFilter, priorityFilter, startDate, endDate]);
 
   // Fetch dashboard statistics separately
   useEffect(() => {
@@ -603,21 +607,21 @@ export default function AdminDashboard() {
             </p>
           )}
 
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {/* Search */}
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search ticket number or title..."
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              placeholder="Search number or title..."
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm"
             />
 
             {/* Status filter */}
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500 text-sm"
             >
               <option value="ALL">All status</option>
               <option value="OPEN">Open</option>
@@ -633,7 +637,7 @@ export default function AdminDashboard() {
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500 text-sm"
             >
               <option value="ALL">All priorities</option>
               <option value="LOW">Low</option>
@@ -641,6 +645,24 @@ export default function AdminDashboard() {
               <option value="HIGH">High</option>
               <option value="URGENT">Urgent</option>
             </select>
+
+            {/* Start Date */}
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              title="From Date"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500 text-sm text-slate-700"
+            />
+
+            {/* End Date */}
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              title="To Date"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-blue-500 text-sm text-slate-700"
+            />
           </div>
 
           <div className="mt-3 flex items-center justify-between">
@@ -654,6 +676,8 @@ export default function AdminDashboard() {
                 setSearchTerm("");
                 setStatusFilter("ALL");
                 setPriorityFilter("ALL");
+                setStartDate("");
+                setEndDate("");
               }}
               className="text-sm font-medium text-blue-600 hover:underline"
             >
