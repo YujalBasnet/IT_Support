@@ -23,6 +23,8 @@ erDiagram
     TICKETS ||--o{ TICKET_HISTORY : "tracks"
     USERS ||--o{ TICKET_HISTORY : "triggers"
     USERS ||--o{ AUDIT_LOGS : "performed by"
+    USERS ||--o{ NOTIFICATIONS : "receives"
+    TICKETS ||--o{ NOTIFICATIONS : "generates"
 
     ROLES {
         int id PK
@@ -126,6 +128,16 @@ erDiagram
         json changes
         timestamp created_at
     }
+
+    NOTIFICATIONS {
+        int id PK
+        int user_id FK
+        int ticket_id FK
+        varchar type
+        text message
+        boolean is_read
+        timestamp created_at
+    }
 ```
 
 ---
@@ -168,3 +180,7 @@ erDiagram
 
 9. **`audit_logs`**:
    - System audit trail for administrative actions (role changes, account deactivations, team changes, category edits).
+
+10. **`notifications`**:
+   - In-app notification store notifying employees and agents about ticket creation, assignment, status transitions, priority changes, and comments.
+   - Tracks unread vs read status (`is_read`).

@@ -10,6 +10,7 @@ import teamRoutes from "./routes/team.js";
 import attachmentRoutes from "./routes/attachmentRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import auditRoutes from "./routes/auditRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import swaggerUi from "swagger-ui-express";
 import swaggerSpec from "./config/swagger.js";
@@ -41,6 +42,9 @@ app.use("/categories", categoryRoutes);
 
 app.use("/api/audit-logs", auditRoutes);
 app.use("/audit-logs", auditRoutes);
+
+app.use("/api/notifications", notificationRoutes);
+app.use("/notifications", notificationRoutes);
 
 app.get("/", (req, res) => {
   res.send("IT Support Backend is running...");
