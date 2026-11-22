@@ -45,6 +45,16 @@ export const isSupportAgent = (req, res, next) => {
   }
 };
 
+export const isAgentOrAdmin = (req, res, next) => {
+  if (req.user && (req.user.roleId === 2 || req.user.roleId === 3)) {
+    next();
+  } else {
+    return res.status(403).json({
+      message: "Support agent or Admin access required",
+    });
+  }
+};
+
 export const isEmployee = (req, res, next) => {
   if (req.user.roleId === 1) {
     next();
