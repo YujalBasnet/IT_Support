@@ -169,3 +169,21 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   INDEX idx_audit_resource (resource_type, resource_id),
   INDEX idx_audit_created_at (created_at)
 ) ENGINE=InnoDB;
+
+-- 11. NOTIFICATIONS TABLE
+CREATE TABLE IF NOT EXISTS notifications (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  ticket_id INT NULL,
+  type VARCHAR(100) NOT NULL,
+  message TEXT NOT NULL,
+  is_read TINYINT(1) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_notifications_ticket FOREIGN KEY (ticket_id) REFERENCES tickets (id) ON DELETE CASCADE,
+  CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  INDEX idx_notifications_user (user_id),
+  INDEX idx_notifications_ticket (ticket_id),
+  INDEX idx_notifications_read (is_read),
+  INDEX idx_notifications_created (created_at)
+) ENGINE=InnoDB;
+
